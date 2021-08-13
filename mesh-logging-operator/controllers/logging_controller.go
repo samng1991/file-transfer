@@ -78,7 +78,7 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	//	return ctrl.Result{}, err
 	//}
 	//fmt.Println(selector)
-	if err = r.List(ctx, &inputs, client.InNamespace(req.Namespace)); err != nil {
+	if err := r.List(ctx, &inputs, client.InNamespace(req.Namespace)); err != nil {
 		fmt.Println("Got error2")
 		return ctrl.Result{}, err
 	}
