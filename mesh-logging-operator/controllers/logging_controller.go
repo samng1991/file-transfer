@@ -71,7 +71,18 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	//log := ctrllog.FromContext(ctx)
 
 	// your logic here
-	fmt.Println(req)
+	var inputs loggingv1alpha1.AlertPatternList
+	selector, err := metav1.LabelSelectorAsSelector(&req.Spec.InputSelector)
+	if err != nil {
+		fmt.Println("Got error1")
+		return ctrl.Result{}, err
+	}
+	fmt.Println(selector)
+	if err = r.List(ctx, &inputs, client.InNamespace(req.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		fmt.Println("Got error2")
+		return ctrl.Result{}, err
+	}
+	fmt.Println(inputs)
 
 	return ctrl.Result{}, nil
 }
