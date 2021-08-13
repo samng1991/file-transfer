@@ -1,0 +1,7 @@
+apiVersion: logging.mesh.hkjc.org.com/v1alpha1
+kind: Throttle
+metadata:
+  name: throttle-sample
+spec:
+  # Add fields here
+  foo: bar

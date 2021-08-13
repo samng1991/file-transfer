@@ -1,0 +1,24 @@
+# permissions for end users to edit parsers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: parser-editor-role
+rules:
+- apiGroups:
+  - logging.mesh.hkjc.org.com
+  resources:
+  - parsers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - logging.mesh.hkjc.org.com
+  resources:
+  - parsers/status
+  verbs:
+  - get

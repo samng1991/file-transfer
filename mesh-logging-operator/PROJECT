@@ -13,7 +13,31 @@ resources:
   controller: true
   domain: mesh.hkjc.org.com
   group: logging
+  kind: Logging
+  path: hkjc.org.com/mesh/logging-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: mesh.hkjc.org.com
+  group: logging
   kind: AlertPattern
+  path: hkjc.org.com/mesh/logging-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: mesh.hkjc.org.com
+  group: logging
+  kind: Parser
+  path: hkjc.org.com/mesh/logging-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: mesh.hkjc.org.com
+  group: logging
+  kind: Throttle
   path: hkjc.org.com/mesh/logging-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

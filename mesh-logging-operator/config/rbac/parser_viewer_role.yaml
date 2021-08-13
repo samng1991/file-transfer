@@ -1,0 +1,20 @@
+# permissions for end users to view parsers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: parser-viewer-role
+rules:
+- apiGroups:
+  - logging.mesh.hkjc.org.com
+  resources:
+  - parsers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - logging.mesh.hkjc.org.com
+  resources:
+  - parsers/status
+  verbs:
+  - get

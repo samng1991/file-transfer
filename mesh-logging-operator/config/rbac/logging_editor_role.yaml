@@ -1,0 +1,24 @@
+# permissions for end users to edit loggings.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: logging-editor-role
+rules:
+- apiGroups:
+  - logging.mesh.hkjc.org.com
+  resources:
+  - loggings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - logging.mesh.hkjc.org.com
+  resources:
+  - loggings/status
+  verbs:
+  - get

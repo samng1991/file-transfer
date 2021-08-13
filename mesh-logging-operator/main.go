@@ -78,11 +78,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.AlertPatternReconciler{
+	if err = (&controllers.LoggingReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "AlertPattern")
+		setupLog.Error(err, "unable to create controller", "controller", "Logging")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

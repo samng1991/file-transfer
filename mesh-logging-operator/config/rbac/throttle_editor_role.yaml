@@ -1,0 +1,24 @@
+# permissions for end users to edit throttles.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: throttle-editor-role
+rules:
+- apiGroups:
+  - logging.mesh.hkjc.org.com
+  resources:
+  - throttles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - logging.mesh.hkjc.org.com
+  resources:
+  - throttles/status
+  verbs:
+  - get
