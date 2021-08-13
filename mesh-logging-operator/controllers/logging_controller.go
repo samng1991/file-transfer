@@ -17,12 +17,22 @@ limitations under the License.
 package controllers
 
 import (
-	"context"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"context"
+	"reflect"
+	"time"
 
 	loggingv1alpha1 "hkjc.org.com/mesh/logging-operator/api/v1alpha1"
 )
@@ -36,6 +46,15 @@ type LoggingReconciler struct {
 //+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=loggings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=loggings/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=loggings/finalizers,verbs=update
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=alertpatterns,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=alertpatterns/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=alertpatterns/finalizers,verbs=update
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=parsers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=parsers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=parsers/finalizers,verbs=update
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=throttles,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=throttles/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=throttles/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -50,6 +69,7 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	_ = log.FromContext(ctx)
 
 	// your logic here
+	log.Info(req)
 
 	return ctrl.Result{}, nil
 }
@@ -58,5 +78,8 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&loggingv1alpha1.Logging{}).
+		Watches(&source.Kind{Type: &loggingv1alpha1.AlertPattern{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &loggingv1alpha1.Parser{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &loggingv1alpha1.Throttle{}}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
