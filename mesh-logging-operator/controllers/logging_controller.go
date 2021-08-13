@@ -33,6 +33,7 @@ import (
 	"context"
 	"reflect"
 	"time"
+	"fmt"
 
 	loggingv1alpha1 "hkjc.org.com/mesh/logging-operator/api/v1alpha1"
 )
@@ -69,7 +70,7 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	log := ctrllog.FromContext(ctx)
 
 	// your logic here
-	log.Info(req)
+	fmt.Println(req)
 
 	return ctrl.Result{}, nil
 }
