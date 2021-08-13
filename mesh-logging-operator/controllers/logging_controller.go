@@ -20,7 +20,7 @@ import (
 	//appsv1 "k8s.io/api/apps/v1"
 	//corev1 "k8s.io/api/core/v1"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//"k8s.io/apimachinery/pkg/api/errors"
 	//"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -72,13 +72,13 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// your logic here
 	var inputs loggingv1alpha1.AlertPatternList
-	selector, err := metav1.LabelSelectorAsSelector(&req.Spec.InputSelector)
-	if err != nil {
-		fmt.Println("Got error1")
-		return ctrl.Result{}, err
-	}
+	//selector, err := metav1.LabelSelectorAsSelector(&req.Spec.InputSelector)
+	//if err != nil {
+	//	fmt.Println("Got error1")
+	//	return ctrl.Result{}, err
+	//}
 	fmt.Println(selector)
-	if err = r.List(ctx, &inputs, client.InNamespace(req.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+	if err = r.List(ctx, &inputs, client.InNamespace(req.Namespace)); err != nil {
 		fmt.Println("Got error2")
 		return ctrl.Result{}, err
 	}
