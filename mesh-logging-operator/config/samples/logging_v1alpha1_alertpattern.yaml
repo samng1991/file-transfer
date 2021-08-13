@@ -1,0 +1,7 @@
+apiVersion: logging.mesh.hkjc.org.com/v1alpha1
+kind: AlertPattern
+metadata:
+  name: alertpattern-sample
+spec:
+  # Add fields here
+  foo: bar
