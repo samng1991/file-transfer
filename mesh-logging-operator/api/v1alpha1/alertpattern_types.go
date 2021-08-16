@@ -31,6 +31,7 @@ type AlertPatternItem struct {
 type AlertPatternSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Containers        []string           `json:"containers,omitempty"`
 	AlertPatternItems []AlertPatternItem `json:"alertPatterns,omitempty"`
 }
 
@@ -38,6 +39,7 @@ type AlertPatternSpec struct {
 type AlertPatternStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Effected bool `json:"effected"`
 }
 
 //+kubebuilder:object:root=true

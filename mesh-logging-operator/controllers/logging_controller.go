@@ -24,7 +24,6 @@ import (
 	//"k8s.io/apimachinery/pkg/api/errors"
 	//"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/runtime"
-	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,18 +31,20 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"context"
 	//"reflect"
-	//"time"
+	"context"
+	"time"
 	"fmt"
 
 	loggingv1alpha1 "hkjc.org.com/mesh/logging-operator/api/v1alpha1"
+	operator "hkjc.org.com/mesh/logging-operator/pkg/operator"
 )
 
 // LoggingReconciler reconciles a Logging object
 type LoggingReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	BasicConfig operator.BasicConfig
 }
 
 //+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=loggings,verbs=get;list;watch;create;update;patch;delete
@@ -70,6 +71,26 @@ type LoggingReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
+
+	// TODO: Get resource by req
+	// TODO: Create/update configmap by req
+	// TODO: if yes then restart daemonset/sts
+
+	memcached := &cachev1alpha1.Memcached{}
+	err := r.Get(ctx, req.NamespacedName, memcached)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			log.Info("Memcached resource not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		log.Error(err, "Failed to get Memcached")
+		return ctrl.Result{}, err
+	}
+
 
 	log.Info("Creating a new Deployment", "Deployment.Namespace")
 
@@ -102,9 +123,14 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(time.Duration(r.BasicConfig.WatchInterval) * time.Second)
 	go func() {
 		for range ticker.C {
+			// TODO: if logging resource got change, then get daemonset/sts restart time and check is it greater than restartedAt annotation.
+			// TODO: if yes then restart daemonset/sts
+			/*
+			spec.template.metadata.annotations.["kubectl.kubernetes.io/restartedAt"]: "2021-08-16T17:25:56+08:00"
+			 */
 			fmt.Println("Hello !!")
 		}
 	}()
