@@ -24,7 +24,7 @@ type AlertPatternItem struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	EventId string `json:"eventId,omitempty"`
-	Regex string `json:"regex,omitempty"`
+	Regex   string `json:"regex,omitempty"`
 }
 
 // AlertPatternSpec defines the desired state of AlertPattern

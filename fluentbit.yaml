@@ -1,4 +1,17 @@
 apiVersion: logging.kubesphere.io/v1alpha2
+kind: FluentBit
+metadata:
+  name: fluent-bit
+  namespace: logging-system
+  labels:
+    name: fluent-bit
+spec:
+  image: kubesphere/fluent-bit:v1.8.3
+  positionDB:
+    emptyDir: {}
+  fluentBitConfigName: fluent-bit-config
+---
+apiVersion: logging.kubesphere.io/v1alpha2
 kind: FluentBitConfig
 metadata:
   name: fluent-bit-config
@@ -18,3 +31,14 @@ spec:
     httpPort: 2020
     httpServer: true
     parsersFile: parsers.conf
+---
+apiVersion: logging.kubesphere.io/v1alpha2
+kind: Input
+metadata:
+  name: fluent-bit-input
+  namespace: logging-system
+  labels:
+    logging.kubesphere.io/enabled: 'true'
+spec:
+  tail:
+    path: /tmp
