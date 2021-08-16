@@ -24,12 +24,13 @@ import (
 	//"k8s.io/apimachinery/pkg/api/errors"
 	//"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/runtime"
+	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	//ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"context"
 	//"reflect"
@@ -68,7 +69,15 @@ type LoggingReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	//log := ctrllog.FromContext(ctx)
+	log := ctrllog.FromContext(ctx)
+
+	log.Info("Creating a new Deployment", "Deployment.Namespace")
+
+	restartBmcAggregator := false
+
+	if restartBmcAggregator {
+
+	}
 
 	// your logic here
 	var inputs loggingv1alpha1.AlertPatternList
@@ -78,7 +87,11 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	//	return ctrl.Result{}, err
 	//}
 	//fmt.Println(selector)
-	if err := r.List(ctx, &inputs, client.InNamespace(req.Namespace)); err != nil {
+	//if err := r.List(ctx, &inputs, client.InNamespace(req.Namespace)); err != nil {
+	//	fmt.Println("Got error2")
+	//	return ctrl.Result{}, err
+	//}
+	if err := r.List(ctx, &inputs); err != nil {
 		fmt.Println("Got error2")
 		return ctrl.Result{}, err
 	}
@@ -89,6 +102,13 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	ticker := time.NewTicker(1 * time.Second)
+	go func() {
+		for range ticker.C {
+			fmt.Println("Hello !!")
+		}
+	}()
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&loggingv1alpha1.Logging{}).
 		Watches(&source.Kind{Type: &loggingv1alpha1.AlertPattern{}}, &handler.EnqueueRequestForObject{}).
