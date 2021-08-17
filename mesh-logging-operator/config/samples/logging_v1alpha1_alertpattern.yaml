@@ -3,5 +3,6 @@ kind: AlertPattern
 metadata:
   name: alertpattern-sample
 spec:
-  # Add fields here
-  foo: bar
+  alertPatterns:
+    - eventId: event-1
+      regex: test.*
