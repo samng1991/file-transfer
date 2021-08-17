@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -100,11 +101,19 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	clientCfg, _ := clientcmd.NewDefaultClientConfigLoadingRules().Load()
+	operatorNamespace := clientCfg.Contexts[clientCfg.CurrentContext].Namespace
+
+	if operatorNamespace == "" {
+		operatorNamespace = "default"
+	}
+	fmt.Printf(operatorNamespace)
+
 	// Create or update the corresponding Secret
 	alertPatternConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      alertPattern.Name,
-			Namespace: alertPattern.Namespace,
+			Namespace: operatorNamespace,
 		},
 		Data: map[string]string{
 			"alert-pattern.conf": alertPatternCfg,
