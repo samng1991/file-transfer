@@ -1,4 +1,4 @@
-apiVersion: logging.mesh.hkjc.org.com/v1alpha1
+apiVersion: logging.mesh.hkjc.org.hk/v1alpha1
 kind: Logging
 metadata:
   name: logging-sample

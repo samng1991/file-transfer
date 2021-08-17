@@ -20,6 +20,11 @@ import (
 	//appsv1 "k8s.io/api/apps/v1"
 	//corev1 "k8s.io/api/core/v1"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
 	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//"k8s.io/apimachinery/pkg/api/errors"
 	//"k8s.io/apimachinery/pkg/types"
@@ -33,32 +38,32 @@ import (
 
 	//"reflect"
 	"context"
-	"time"
 	"fmt"
+	"time"
 
-	loggingv1alpha1 "hkjc.org.com/mesh/logging-operator/api/v1alpha1"
-	operator "hkjc.org.com/mesh/logging-operator/pkg/operator"
+	loggingv1alpha1 "hkjc.org.hk/mesh/logging-operator/api/v1alpha1"
+	operator "hkjc.org.hk/mesh/logging-operator/pkg/operator"
 )
 
 // LoggingReconciler reconciles a Logging object
 type LoggingReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme      *runtime.Scheme
 	BasicConfig operator.BasicConfig
 }
 
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=loggings,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=loggings/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=loggings/finalizers,verbs=update
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=alertpatterns,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=alertpatterns/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=alertpatterns/finalizers,verbs=update
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=parsers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=parsers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=parsers/finalizers,verbs=update
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=throttles,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=throttles/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.com,resources=throttles/finalizers,verbs=update
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=loggings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=loggings/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=loggings/finalizers,verbs=update
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=alertpatterns,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=alertpatterns/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=alertpatterns/finalizers,verbs=update
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=parsers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=parsers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=parsers/finalizers,verbs=update
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=throttles,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=throttles/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=throttles/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -75,48 +80,46 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// TODO: Get resource by req
 	// TODO: Create/update configmap by req
 	// TODO: if yes then restart daemonset/sts
-
-	memcached := &cachev1alpha1.Memcached{}
-	err := r.Get(ctx, req.NamespacedName, memcached)
+	alertPattern := &loggingv1alpha1.AlertPattern{}
+	err := r.Get(ctx, req.NamespacedName, alertPattern)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			log.Info("Memcached resource not found. Ignoring since object must be deleted")
+			log.Info("AlertPattern resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		log.Error(err, "Failed to get Memcached")
+		log.Error(err, "Failed to get AlertPattern")
 		return ctrl.Result{}, err
 	}
 
-
-	log.Info("Creating a new Deployment", "Deployment.Namespace")
-
-	restartBmcAggregator := false
-
-	if restartBmcAggregator {
-
-	}
-
-	// your logic here
-	var inputs loggingv1alpha1.AlertPatternList
-	//selector, err := metav1.LabelSelectorAsSelector(&req.Spec.InputSelector)
-	//if err != nil {
-	//	fmt.Println("Got error1")
-	//	return ctrl.Result{}, err
-	//}
-	//fmt.Println(selector)
-	//if err := r.List(ctx, &inputs, client.InNamespace(req.Namespace)); err != nil {
-	//	fmt.Println("Got error2")
-	//	return ctrl.Result{}, err
-	//}
-	if err := r.List(ctx, &inputs); err != nil {
-		fmt.Println("Got error2")
+	alertPatternCfg, err := alertPattern.Load()
+	if err != nil {
 		return ctrl.Result{}, err
 	}
-	fmt.Println(inputs)
+
+	// Create or update the corresponding Secret
+	alertPatternConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      alertPattern.Name,
+			Namespace: alertPattern.Namespace,
+		},
+		Data: map[string]string{
+			"alert-pattern.conf": alertPatternCfg,
+		},
+	}
+
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, alertPatternConfigMap, func() error {
+		alertPatternConfigMap.Data = map[string]string{
+			"alert-pattern.conf": alertPatternCfg,
+		}
+		alertPatternConfigMap.SetOwnerReferences(nil)
+		return nil
+	}); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -129,8 +132,8 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			// TODO: if logging resource got change, then get daemonset/sts restart time and check is it greater than restartedAt annotation.
 			// TODO: if yes then restart daemonset/sts
 			/*
-			spec.template.metadata.annotations.["kubectl.kubernetes.io/restartedAt"]: "2021-08-16T17:25:56+08:00"
-			 */
+				spec.template.metadata.annotations.["kubectl.kubernetes.io/restartedAt"]: "2021-08-16T17:25:56+08:00"
+			*/
 			fmt.Println("Hello !!")
 		}
 	}()

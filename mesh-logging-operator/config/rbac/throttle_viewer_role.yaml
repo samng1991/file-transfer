@@ -5,7 +5,7 @@ metadata:
   name: throttle-viewer-role
 rules:
 - apiGroups:
-  - logging.mesh.hkjc.org.com
+  - logging.mesh.hkjc.org.hk
   resources:
   - throttles
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - logging.mesh.hkjc.org.com
+  - logging.mesh.hkjc.org.hk
   resources:
   - throttles/status
   verbs:

@@ -17,6 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -52,6 +55,45 @@ type AlertPattern struct {
 
 	Spec   AlertPatternSpec   `json:"spec,omitempty"`
 	Status AlertPatternStatus `json:"status,omitempty"`
+}
+
+func (alertPattern AlertPattern) Load() (string, error) {
+	var buf bytes.Buffer
+
+	merge := func(elem AlertPatternItem) error {
+		// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
+		encodedName := base64.StdEncoding.EncodeToString([]byte(alertPattern.Name))
+
+		var container = alertPattern.ObjectMeta.Annotations["hkjc.org.hk/container"]
+		if len(container) == 0 {
+			container = "*"
+		}
+
+		//[FILTER]
+		//	Name          rewrite_tag
+		//	Match         test_tag
+		//	Rule          $tool ^(fluent)$  from.$TAG.new.$tool.$sub['s1']['s2'].out false
+		//	Emitter_Name  re_emitted
+		buf.WriteString("[Filter]\n")
+		buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
+		buf.WriteString(fmt.Sprintf("    Match    *.var.log.containers.%s_%s_%s-*.log\n", alertPattern.Name, alertPattern.Namespace, container))
+		buf.WriteString(fmt.Sprintf("    Rule    $stream .* %s.$TAG false\n", encodedName))
+
+		buf.WriteString("[Filter]\n")
+		buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
+		buf.WriteString(fmt.Sprintf("    Match    %s.*.var.log.containers.%s_%s_%s-*.log\n", encodedName, alertPattern.Namespace, alertPattern.Namespace, container))
+		buf.WriteString(fmt.Sprintf("    Rule    $log %s bmc.$TAG false\n", elem.Regex))
+
+		return nil
+	}
+
+	for _, elem := range alertPattern.Spec.AlertPatternItems {
+		if err := merge(elem); err != nil {
+			return "", err
+		}
+	}
+
+	return buf.String(), nil
 }
 
 //+kubebuilder:object:root=true

@@ -8,4 +8,4 @@ webhook:
   port: 9443
 leaderElection:
   leaderElect: true
-  resourceName: 9c983dc9.mesh.hkjc.org.com
+  resourceName: 9c983dc9.mesh.hkjc.org.hk

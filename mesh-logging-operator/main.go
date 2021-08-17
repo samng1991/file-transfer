@@ -31,9 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	loggingv1alpha1 "hkjc.org.com/mesh/logging-operator/api/v1alpha1"
-	"hkjc.org.com/mesh/logging-operator/controllers"
-	operator "hkjc.org.com/mesh/logging-operator/pkg/operator"
+	loggingv1alpha1 "hkjc.org.hk/mesh/logging-operator/api/v1alpha1"
+	"hkjc.org.hk/mesh/logging-operator/controllers"
+	operator "hkjc.org.hk/mesh/logging-operator/pkg/operator"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -77,7 +77,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "9c983dc9.mesh.hkjc.org.com",
+		LeaderElectionID:       "9c983dc9.mesh.hkjc.org.hk",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

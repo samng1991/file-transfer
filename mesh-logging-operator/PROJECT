@@ -1,43 +1,43 @@
-domain: mesh.hkjc.org.com
+domain: mesh.hkjc.org.hk
 layout:
 - go.kubebuilder.io/v3
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: mesh-logging-operator
-repo: hkjc.org.com/mesh/logging-operator
+repo: hkjc.org.hk/mesh/logging-operator
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: mesh.hkjc.org.com
+  domain: mesh.hkjc.org.hk
   group: logging
   kind: Logging
-  path: hkjc.org.com/mesh/logging-operator/api/v1alpha1
+  path: hkjc.org.hk/mesh/logging-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
-  domain: mesh.hkjc.org.com
+  domain: mesh.hkjc.org.hk
   group: logging
   kind: AlertPattern
-  path: hkjc.org.com/mesh/logging-operator/api/v1alpha1
+  path: hkjc.org.hk/mesh/logging-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
-  domain: mesh.hkjc.org.com
+  domain: mesh.hkjc.org.hk
   group: logging
   kind: Parser
-  path: hkjc.org.com/mesh/logging-operator/api/v1alpha1
+  path: hkjc.org.hk/mesh/logging-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
-  domain: mesh.hkjc.org.com
+  domain: mesh.hkjc.org.hk
   group: logging
   kind: Throttle
-  path: hkjc.org.com/mesh/logging-operator/api/v1alpha1
+  path: hkjc.org.hk/mesh/logging-operator/api/v1alpha1
   version: v1alpha1
 version: "3"
