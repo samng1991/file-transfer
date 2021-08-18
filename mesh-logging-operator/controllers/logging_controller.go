@@ -143,22 +143,27 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctx := context.Background()
 	log := ctrllog.FromContext(ctx)
 
-	var bmcForwarderConfig = ""
-	var alertPatterns loggingv1alpha1.AlertPatternList
-	if err := r.List(ctx, &alertPatterns); err == nil {
-		alertPatternsConfig, err := alertPatterns.Load()
-		if err == nil {
-			bmcForwarderConfig = bmcForwarderConfig + alertPatternsConfig
-		}
-	}
-	bmcForwarderConfigMD5 := md5.Sum([]byte(bmcForwarderConfig))
-	bmcForwarderConfigHash := hex.EncodeToString(bmcForwarderConfigMD5[:])
-
 	ticker := time.NewTicker(time.Duration(r.BasicConfig.WatchInterval) * time.Second)
 	go func() {
 		for range ticker.C {
 			// TODO: if logging resource got change, then get daemonset/sts restart time and check is it greater than restartedAt annotation.
 			// TODO: if :yes then restart daemonset/sts
+			var bmcForwarderConfig = ""
+			var alertPatterns loggingv1alpha1.AlertPatternList
+			if err := r.List(ctx, &alertPatterns); err == nil {
+				log.Info("Loading AlertPattern")
+				alertPatternsConfig, err := alertPatterns.Load()
+				if err == nil {
+					bmcForwarderConfig = bmcForwarderConfig + alertPatternsConfig
+				} else {
+					log.Error(err, "Failed to load AlertPattern")
+				}
+			} else {
+				log.Error(err, "Unable to list AlertPattern")
+			}
+			bmcForwarderConfigMD5 := md5.Sum([]byte(bmcForwarderConfig))
+			bmcForwarderConfigHash := hex.EncodeToString(bmcForwarderConfigMD5[:])
+
 			log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
 			alertPatternConfigMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
