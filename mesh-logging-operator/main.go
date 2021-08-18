@@ -30,8 +30,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	loggingv1alpha1 "hkjc.org.hk/mesh/logging-operator/api/v1alpha1"
@@ -41,7 +41,7 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
+	scheme = runtime.NewScheme()
 	//setupLog = ctrl.Log.WithName("setup")
 	setupLog = ctrllog.FromContext(context.Background())
 )
@@ -74,9 +74,10 @@ func main() {
 
 	operatorNamespace := "default"
 	if operatorNamespaceByte, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err != nil {
-		operatorNamespace = string(operatorNamespaceByte)
-	} else {
 		setupLog.Error(err, "unable to getting namespace from /var/run/secrets/kubernetes.io/serviceaccount/namespace")
+		os.Exit(1)
+	} else {
+		operatorNamespace = string(operatorNamespaceByte)
 	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
