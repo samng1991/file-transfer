@@ -38,6 +38,7 @@ import (
 
 	//"reflect"
 	"context"
+	"crypto/md5"
 	"fmt"
 	"time"
 
@@ -110,6 +111,9 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      alertPattern.Name,
 			Namespace: r.BasicConfig.OperatorNamespace,
+			Annotations: {
+				"hkjc.org.hk/checksum": md5.Sum([]byte(alertPatternCfg)),
+			},
 		},
 		Data: map[string]string{
 			"alert-pattern.conf": alertPatternCfg,
@@ -118,13 +122,14 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	log.Info("Create or update configmap resource for AlertPattern")
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, alertPatternConfigMap, func() error {
-		log.Error(err, "Failed to create or update configmap resource for AlertPattern")
+		alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/checksum"] = md5.Sum([]byte(alertPatternCfg))
 		alertPatternConfigMap.Data = map[string]string{
 			"alert-pattern.conf": alertPatternCfg,
 		}
-		alertPatternConfigMap.SetOwnerReferences(nil)
+		//alertPatternConfigMap.SetOwnerReferences(nil)
 		return nil
 	}); err != nil {
+		log.Error(err, "Failed to create or update configmap resource for AlertPattern")
 		return ctrl.Result{}, err
 	}
 
@@ -137,7 +142,7 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	go func() {
 		for range ticker.C {
 			// TODO: if logging resource got change, then get daemonset/sts restart time and check is it greater than restartedAt annotation.
-			// TODO: if yes then restart daemonset/sts
+			// TODO: if :yes then restart daemonset/sts
 			/*
 				spec.template.metadata.annotations.["kubectl.kubernetes.io/restartedAt"]: "2021-08-16T17:25:56+08:00"
 			*/

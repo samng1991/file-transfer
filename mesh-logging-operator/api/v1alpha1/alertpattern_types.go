@@ -18,9 +18,11 @@ package v1alpha1
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type AlertPatternItem struct {
@@ -58,8 +60,9 @@ type AlertPattern struct {
 }
 
 func (alertPattern AlertPattern) Load() (string, error) {
-	var buf bytes.Buffer
+	log := ctrllog.FromContext(context.Background())
 
+	var buf bytes.Buffer
 	merge := func(elem AlertPatternItem) error {
 		// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
 		encodedName := base64.StdEncoding.EncodeToString([]byte(alertPattern.Name))
@@ -88,6 +91,7 @@ func (alertPattern AlertPattern) Load() (string, error) {
 	}
 
 	for _, elem := range alertPattern.Spec.AlertPatternItems {
+		log.Info("Merging AlertPatternItem", "EventId", elem.EventId, "Regex", elem.Regex)
 		if err := merge(elem); err != nil {
 			return "", err
 		}
