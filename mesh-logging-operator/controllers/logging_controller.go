@@ -20,6 +20,7 @@ import (
 	//appsv1 "k8s.io/api/apps/v1"
 	//corev1 "k8s.io/api/core/v1"
 
+	"encoding/hex"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,10 +41,9 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"time"
-
 	loggingv1alpha1 "hkjc.org.hk/mesh/logging-operator/api/v1alpha1"
 	operator "hkjc.org.hk/mesh/logging-operator/pkg/operator"
+	"time"
 )
 
 // LoggingReconciler reconciles a Logging object
@@ -104,6 +104,7 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		log.Info("Failed to load AlertPattern")
 		return ctrl.Result{}, err
 	}
+	alertPatternCfgHash := hex.EncodeToString(md5.Sum([]byte(alertPatternCfg))[:])
 
 	// Create or update the corresponding Secret
 	log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
@@ -111,8 +112,8 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      alertPattern.Name,
 			Namespace: r.BasicConfig.OperatorNamespace,
-			Annotations: {
-				"hkjc.org.hk/checksum": md5.Sum([]byte(alertPatternCfg)),
+			Annotations: map[string]string{
+				"hkjc.org.hk/checksum": alertPatternCfgHash,
 			},
 		},
 		Data: map[string]string{
@@ -122,7 +123,7 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	log.Info("Create or update configmap resource for AlertPattern")
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, alertPatternConfigMap, func() error {
-		alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/checksum"] = md5.Sum([]byte(alertPatternCfg))
+		alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/checksum"] = alertPatternCfgHash
 		alertPatternConfigMap.Data = map[string]string{
 			"alert-pattern.conf": alertPatternCfg,
 		}
