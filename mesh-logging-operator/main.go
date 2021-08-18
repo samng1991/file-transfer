@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -55,12 +56,11 @@ func main() {
 	var probeAddr string
 	var watchInterval int
 	var minRestartInterval int
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&metricsAddr, "F", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	// TODO: Add args eg. interval time
 	flag.IntVar(&watchInterval, "watch-interval", 60, "The interval in second that operator to watch config change.")
 	flag.IntVar(&minRestartInterval, "min-restart-interval", 60, "The min interval in minute that operator would restart forwarder/aggregator for updating config.")
 	opts := zap.Options{
@@ -68,6 +68,13 @@ func main() {
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	operatorNamespace := "default"
+	if operatorNamespaceByte, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err != nil {
+		operatorNamespace = string(operatorNamespaceByte)
+	} else {
+		setupLog.Error(err, "unable to getting namespace from /var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -90,6 +97,7 @@ func main() {
 		BasicConfig: operator.BasicConfig{
 			WatchInterval:      watchInterval,
 			MinRestartInterval: minRestartInterval,
+			OperatorNamespace:  operatorNamespace,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Logging")

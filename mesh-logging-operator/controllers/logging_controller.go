@@ -102,14 +102,10 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Create or update the corresponding Secret
-	operatorNamespace := "default"
-	if operatorNamespaceByte, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err != nil {
-		operatorNamespace = string(operatorNamespaceByte)
-	}
 	alertPatternConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      alertPattern.Name,
-			Namespace: operatorNamespace,
+			Namespace: r.BasicConfig.OperatorNamespace,
 		},
 		Data: map[string]string{
 			"alert-pattern.conf": alertPatternCfg,
