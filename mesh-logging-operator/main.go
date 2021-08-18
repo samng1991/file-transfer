@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"io/ioutil"
 	"os"
@@ -42,8 +41,7 @@ import (
 
 var (
 	scheme = runtime.NewScheme()
-	//setupLog = ctrl.Log.WithName("setup")
-	setupLog = ctrllog.FromContext(context.Background())
+	setupLog = ctrl.Log.WithName("setup")
 )
 
 func init() {

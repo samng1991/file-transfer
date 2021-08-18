@@ -109,6 +109,22 @@ type AlertPatternList struct {
 	Items           []AlertPattern `json:"items"`
 }
 
+func (alertPatterns AlertPatternList) Load() (string, error) {
+	log := ctrllog.FromContext(context.Background())
+
+	var alertPatternsConfig = ""
+	for _, alertPatternItem := range alertPatterns.Items {
+		alertPatternConfig, err := alertPatternItem.Load()
+		if err == nil {
+			alertPatternsConfig = alertPatternsConfig + alertPatternConfig
+		} else {
+			log.Error(err, "Unable to load AlertPattern")
+		}
+	}
+
+	return alertPatternsConfig, nil
+}
+
 func init() {
 	SchemeBuilder.Register(&AlertPattern{}, &AlertPatternList{})
 }

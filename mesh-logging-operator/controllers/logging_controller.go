@@ -22,7 +22,6 @@ import (
 
 	"encoding/hex"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -40,7 +39,6 @@ import (
 	//"reflect"
 	"context"
 	"crypto/md5"
-	"fmt"
 	loggingv1alpha1 "hkjc.org.hk/mesh/logging-operator/api/v1alpha1"
 	operator "hkjc.org.hk/mesh/logging-operator/pkg/operator"
 	"time"
@@ -77,77 +75,118 @@ type LoggingReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := ctrllog.FromContext(ctx)
-
-	// TODO: Get resource by req
-	// TODO: Create/update configmap by req
-	// TODO: if yes then restart daemonset/sts
-	log.Info("Getting request AlertPattern")
-	alertPattern := &loggingv1alpha1.AlertPattern{}
-	err := r.Get(ctx, req.NamespacedName, alertPattern)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			log.Info("AlertPattern resource not found. Ignoring since object must be deleted")
-			return ctrl.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		log.Error(err, "Failed to get AlertPattern")
-		return ctrl.Result{}, err
-	}
-
-	log.Info("Loading AlertPattern")
-	alertPatternCfg, err := alertPattern.Load()
-	if err != nil {
-		log.Info("Failed to load AlertPattern")
-		return ctrl.Result{}, err
-	}
-	alertPatternCfgHash := hex.EncodeToString(md5.Sum([]byte(alertPatternCfg))[:])
-
-	// Create or update the corresponding Secret
-	log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
-	alertPatternConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      alertPattern.Name,
-			Namespace: r.BasicConfig.OperatorNamespace,
-			Annotations: map[string]string{
-				"hkjc.org.hk/checksum": alertPatternCfgHash,
-			},
-		},
-		Data: map[string]string{
-			"alert-pattern.conf": alertPatternCfg,
-		},
-	}
-
-	log.Info("Create or update configmap resource for AlertPattern")
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, alertPatternConfigMap, func() error {
-		alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/checksum"] = alertPatternCfgHash
-		alertPatternConfigMap.Data = map[string]string{
-			"alert-pattern.conf": alertPatternCfg,
-		}
-		//alertPatternConfigMap.SetOwnerReferences(nil)
-		return nil
-	}); err != nil {
-		log.Error(err, "Failed to create or update configmap resource for AlertPattern")
-		return ctrl.Result{}, err
-	}
+	//log := ctrllog.FromContext(ctx)
+	//
+	//// TODO: Get resource by req
+	//// TODO: Create/update configmap by req
+	//// TODO: if yes then restart daemonset/sts
+	//log.Info("Getting request AlertPattern")
+	//alertPattern := &loggingv1alpha1.AlertPattern{}
+	//err := r.Get(ctx, req.NamespacedName, alertPattern)
+	//if err != nil {
+	//	if errors.IsNotFound(err) {
+	//		// Request object not found, could have been deleted after reconcile request.
+	//		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+	//		// Return and don't requeue
+	//		log.Info("AlertPattern resource not found. Ignoring since object must be deleted")
+	//		return ctrl.Result{}, nil
+	//	}
+	//	// Error reading the object - requeue the request.
+	//	log.Error(err, "Failed to get AlertPattern")
+	//	return ctrl.Result{}, err
+	//}
+	//
+	//log.Info("Loading AlertPattern")
+	//alertPatternCfg, err := alertPattern.Load()
+	//if err != nil {
+	//	log.Info("Failed to load AlertPattern")
+	//	return ctrl.Result{}, err
+	//}
+	//alertPatternCfgHash := hex.EncodeToString(md5.Sum([]byte(alertPatternCfg))[:])
+	//
+	//// Create or update the corresponding Secret
+	//log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
+	//alertPatternConfigMap := &corev1.ConfigMap{
+	//	ObjectMeta: metav1.ObjectMeta{
+	//		Name:      alertPattern.Name,
+	//		Namespace: r.BasicConfig.OperatorNamespace,
+	//		Annotations: map[string]string{
+	//			"hkjc.org.hk/checksum": alertPatternCfgHash,
+	//		},
+	//	},
+	//	Data: map[string]string{
+	//		"alert-pattern.conf": alertPatternCfg,
+	//	},
+	//}
+	//
+	//log.Info("Create or update configmap resource for AlertPattern")
+	//if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, alertPatternConfigMap, func() error {
+	//	if alertPatternConfigMap.ObjectMeta.Annotations == nil {
+	//		alertPatternConfigMap.ObjectMeta.Annotations = map[string]string{}
+	//	}
+	//	alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/checksum"] = alertPatternCfgHash
+	//	alertPatternConfigMap.Data = map[string]string{
+	//		"alert-pattern.conf": alertPatternCfg,
+	//	}
+	//	alertPatternConfigMap.SetOwnerReferences(nil)
+	//	return nil
+	//}); err != nil {
+	//	log.Error(err, "Failed to create or update configmap resource for AlertPattern")
+	//	return ctrl.Result{}, err
+	//}
 
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	ctx := context.Background()
+	log := ctrllog.FromContext(ctx)
+
+	var bmcForwarderConfig = ""
+	var alertPatterns loggingv1alpha1.AlertPatternList
+	if err := r.List(ctx, &alertPatterns); err == nil {
+		alertPatternsConfig, err := alertPatterns.Load()
+		if err == nil {
+			bmcForwarderConfig = bmcForwarderConfig + alertPatternsConfig
+		}
+	}
+	bmcForwarderConfigMD5 := md5.Sum([]byte(bmcForwarderConfig))
+	bmcForwarderConfigHash := hex.EncodeToString(bmcForwarderConfigMD5[:])
+
 	ticker := time.NewTicker(time.Duration(r.BasicConfig.WatchInterval) * time.Second)
 	go func() {
 		for range ticker.C {
 			// TODO: if logging resource got change, then get daemonset/sts restart time and check is it greater than restartedAt annotation.
 			// TODO: if :yes then restart daemonset/sts
-			/*
-				spec.template.metadata.annotations.["kubectl.kubernetes.io/restartedAt"]: "2021-08-16T17:25:56+08:00"
-			*/
-			fmt.Println("Hello !!")
+			log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
+			alertPatternConfigMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bmc-forwarder",
+					Namespace: r.BasicConfig.OperatorNamespace,
+					Annotations: map[string]string{
+						"hkjc.org.hk/checksum": bmcForwarderConfigHash,
+					},
+				},
+				Data: map[string]string{
+					"alert-pattern.conf": bmcForwarderConfig,
+				},
+			}
+
+			log.Info("Create or update configmap resource for AlertPattern")
+			if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, alertPatternConfigMap, func() error {
+				if alertPatternConfigMap.ObjectMeta.Annotations == nil {
+					alertPatternConfigMap.ObjectMeta.Annotations = map[string]string{}
+				}
+				alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/checksum"] = bmcForwarderConfigHash
+				alertPatternConfigMap.Data = map[string]string{
+					"alert-pattern.conf": bmcForwarderConfig,
+				}
+				alertPatternConfigMap.SetOwnerReferences(nil)
+				return nil
+			}); err != nil {
+				log.Error(err, "Failed to create or update configmap resource for AlertPattern")
+			}
 		}
 	}()
 
