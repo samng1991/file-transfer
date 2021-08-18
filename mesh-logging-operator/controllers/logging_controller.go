@@ -80,6 +80,7 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// TODO: Get resource by req
 	// TODO: Create/update configmap by req
 	// TODO: if yes then restart daemonset/sts
+	log.Info("Getting request AlertPattern")
 	alertPattern := &loggingv1alpha1.AlertPattern{}
 	err := r.Get(ctx, req.NamespacedName, alertPattern)
 	if err != nil {
@@ -95,12 +96,15 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	log.Info("Loading AlertPattern")
 	alertPatternCfg, err := alertPattern.Load()
 	if err != nil {
+		log.Info("Failed to load AlertPattern")
 		return ctrl.Result{}, err
 	}
 
 	// Create or update the corresponding Secret
+	log.Info("Create configmap var for AlertPattern in namespace", r.BasicConfig.OperatorNamespace)
 	alertPatternConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      alertPattern.Name,
@@ -111,7 +115,9 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		},
 	}
 
+	log.Info("Create or update configmap resource for AlertPattern")
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, alertPatternConfigMap, func() error {
+		log.Error(err, "Failed to create or update configmap resource for AlertPattern")
 		alertPatternConfigMap.Data = map[string]string{
 			"alert-pattern.conf": alertPatternCfg,
 		}
@@ -126,6 +132,8 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	fmt.Println("Hello !!", r.BasicConfig.)
+
 	ticker := time.NewTicker(time.Duration(r.BasicConfig.WatchInterval) * time.Second)
 	go func() {
 		for range ticker.C {
