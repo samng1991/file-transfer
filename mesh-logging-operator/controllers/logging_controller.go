@@ -64,6 +64,7 @@ type LoggingReconciler struct {
 //+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=throttles,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=throttles/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=logging.mesh.hkjc.org.hk,resources=throttles/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -104,7 +105,7 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Create or update the corresponding Secret
-	log.Info("Create configmap var for AlertPattern in namespace", r.BasicConfig.OperatorNamespace)
+	log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
 	alertPatternConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      alertPattern.Name,
@@ -132,8 +133,6 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	fmt.Println("Hello !!", r.BasicConfig.)
-
 	ticker := time.NewTicker(time.Duration(r.BasicConfig.WatchInterval) * time.Second)
 	go func() {
 		for range ticker.C {
