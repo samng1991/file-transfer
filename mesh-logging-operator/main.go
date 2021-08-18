@@ -30,7 +30,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	loggingv1alpha1 "hkjc.org.hk/mesh/logging-operator/api/v1alpha1"
@@ -40,7 +39,7 @@ import (
 )
 
 var (
-	scheme = runtime.NewScheme()
+	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
@@ -55,6 +54,7 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var bmcForwarderName string
 	var watchInterval int
 	var minRestartInterval int
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -62,6 +62,7 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&bmcForwarderName, "bmc-forwarder-name", "fluentd-fluent-bit", "BMC forwarder daemonset name.")
 	flag.IntVar(&watchInterval, "watch-interval", 60, "The interval in second that operator to watch config change.")
 	flag.IntVar(&minRestartInterval, "min-restart-interval", 60, "The min interval in minute that operator would restart forwarder/aggregator for updating config.")
 	opts := zap.Options{
@@ -100,6 +101,7 @@ func main() {
 			WatchInterval:      watchInterval,
 			MinRestartInterval: minRestartInterval,
 			OperatorNamespace:  operatorNamespace,
+			BmcForwarderName:   bmcForwarderName,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Logging")

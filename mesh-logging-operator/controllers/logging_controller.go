@@ -21,14 +21,15 @@ import (
 	//corev1 "k8s.io/api/core/v1"
 
 	"encoding/hex"
+	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//"k8s.io/apimachinery/pkg/api/errors"
-	//"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -142,12 +143,27 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctx := context.Background()
 	log := ctrllog.FromContext(ctx)
+	currentTimestamp := now.Unix()
 
 	ticker := time.NewTicker(time.Duration(r.BasicConfig.WatchInterval) * time.Second)
 	go func() {
 		for range ticker.C {
-			// TODO: if logging resource got change, then get daemonset/sts restart time and check is it greater than restartedAt annotation.
-			// TODO: if :yes then restart daemonset/sts
+			var existBmcForwarderConfigHash string
+			var existBmcForwarderConfigModified int
+			existBmcForwarderConfig := &corev1.ConfigMap{}
+			_ = r.Get(ctx, client.ObjectKey{
+				Namespace: r.BasicConfig.OperatorNamespace,
+				Name:      "bmc-forwarder",
+			}, existBmcForwarderConfig)
+			if existBmcForwarderConfig != nil {
+				if existBmcForwarderConfig.ObjectMeta.Annotations && existBmcForwarderConfig.ObjectMeta.Annotations["hkjc.org.hk/checksum"] {
+					existBmcForwarderConfigHash = existBmcForwarderConfig.ObjectMeta.Annotations["hkjc.org.hk/checksum"]
+				}
+				if existBmcForwarderConfig.ObjectMeta.Annotations && existBmcForwarderConfig.ObjectMeta.Annotations["hkjc.org.hk/modified"] {
+					existBmcForwarderConfigModified = int(existBmcForwarderConfig.ObjectMeta.Annotations["hkjc.org.hk/modified"])
+				}
+			}
+
 			var bmcForwarderConfig = ""
 			var alertPatterns loggingv1alpha1.AlertPatternList
 			if err := r.List(ctx, &alertPatterns); err == nil {
@@ -164,33 +180,59 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			bmcForwarderConfigMD5 := md5.Sum([]byte(bmcForwarderConfig))
 			bmcForwarderConfigHash := hex.EncodeToString(bmcForwarderConfigMD5[:])
 
-			log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
-			alertPatternConfigMap := &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "bmc-forwarder",
-					Namespace: r.BasicConfig.OperatorNamespace,
-					Annotations: map[string]string{
-						"hkjc.org.hk/checksum": bmcForwarderConfigHash,
+			if existBmcForwarderConfigHash != bmcForwarderConfigHash {
+				log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
+				existBmcForwarderConfigModified = currentTimestamp
+				alertPatternConfigMap := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bmc-forwarder",
+						Namespace: r.BasicConfig.OperatorNamespace,
+						Annotations: map[string]string{
+							"hkjc.org.hk/checksum": bmcForwarderConfigHash,
+							"hkjc.org.hk/modified": currentTimestamp,
+						},
 					},
-				},
-				Data: map[string]string{
-					"alert-pattern.conf": bmcForwarderConfig,
-				},
+					Data: map[string]string{
+						"alert-pattern.conf": bmcForwarderConfig,
+					},
+				}
+
+				log.Info("Create or update configmap resource for AlertPattern")
+				if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, alertPatternConfigMap, func() error {
+					if alertPatternConfigMap.ObjectMeta.Annotations == nil {
+						alertPatternConfigMap.ObjectMeta.Annotations = map[string]string{}
+					}
+					alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/checksum"] = bmcForwarderConfigHash
+					alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/modified"] = currentTimestamp
+					alertPatternConfigMap.Data = map[string]string{
+						"alert-pattern.conf": bmcForwarderConfig,
+					}
+					alertPatternConfigMap.SetOwnerReferences(nil)
+					return nil
+				}); err != nil {
+					log.Error(err, "Failed to create or update configmap resource for AlertPattern")
+				}
 			}
 
-			log.Info("Create or update configmap resource for AlertPattern")
-			if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, alertPatternConfigMap, func() error {
-				if alertPatternConfigMap.ObjectMeta.Annotations == nil {
-					alertPatternConfigMap.ObjectMeta.Annotations = map[string]string{}
+			bmcForwarderDaemonSet := &corev1.DeamonSet{}
+			_ = r.Get(ctx, client.ObjectKey{
+				Namespace: r.BasicConfig.OperatorNamespace,
+				Name:      r.BasicConfig.BmcForwarderName,
+			}, bmcForwarderDaemonSet)
+			if bmcForwarderDaemonSet != nil {
+				restart := false
+				if bmcForwarderDaemonSet.ObjectMeta.Annotations && bmcForwarderDaemonSet.ObjectMeta.Annotations["hkjc.org.hk/restartTimestamp"] {
+					restartTimestamp := int(bmcForwarderDaemonSet.ObjectMeta.Annotations["hkjc.org.hk/restartTimestamp"])
+					if (currentTimestamp-restartTimestamp) > 60*60 && restartTimestamp < existBmcForwarderConfigModified {
+						restart = true
+					}
+				} else {
+					restart = true
 				}
-				alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/checksum"] = bmcForwarderConfigHash
-				alertPatternConfigMap.Data = map[string]string{
-					"alert-pattern.conf": bmcForwarderConfig,
+				if restart {
+					patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"hkjc.org.hk/restartTimestamp": "%i"}}}`, currentTimestamp))
+					_ = r.Patch(ctx, bmcForwarderDaemonSet, client.RawPatch(types.StrategicMergePatchType, patch))
 				}
-				alertPatternConfigMap.SetOwnerReferences(nil)
-				return nil
-			}); err != nil {
-				log.Error(err, "Failed to create or update configmap resource for AlertPattern")
 			}
 		}
 	}()
