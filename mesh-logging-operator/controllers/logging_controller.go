@@ -87,12 +87,13 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctx := context.Background()
 	log := ctrllog.FromContext(ctx)
-	currentTimestamp := time.Now().Unix()
 
 	// Schedule to doing reconcile in WatchInterval
 	ticker := time.NewTicker(time.Duration(r.BasicConfig.WatchInterval) * time.Second)
 	go func() {
 		for range ticker.C {
+			currentTimestamp := time.Now().Unix()
+
 			// Get exist bmc forwarder micro-service config and its info
 			var existBmcForwarderMicroServiceConfigHash string
 			var existBmcForwarderMicroServiceConfigModified int64
