@@ -36,7 +36,7 @@ type AlertPatternItem struct {
 type AlertPatternSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Containers        []string           `json:"containers,omitempty"`
+	Container         string             `json:"container,omitempty"`
 	AlertPatternItems []AlertPatternItem `json:"alertPatterns,omitempty"`
 }
 
