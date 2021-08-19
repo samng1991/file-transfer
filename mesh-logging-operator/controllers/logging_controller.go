@@ -101,7 +101,7 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				Namespace: r.BasicConfig.OperatorNamespace,
 				Name:      r.BasicConst.BmcForwarderMicroServiceConfig,
 			}, existBmcForwarderConfig)
-			if err != nil && len(existBmcForwarderConfig.UID) > 0 {
+			if err == nil && len(existBmcForwarderConfig.UID) > 0 {
 				if existBmcForwarderConfig.ObjectMeta.Annotations != nil && len(existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation]) > 0 {
 					existBmcForwarderMicroServiceConfigHash = existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation]
 				}
@@ -172,7 +172,7 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				Namespace: r.BasicConfig.OperatorNamespace,
 				Name:      r.BasicConfig.BmcForwarderName,
 			}, bmcForwarderDaemonSet)
-			if err != nil && len(bmcForwarderDaemonSet.UID) > 0 {
+			if err == nil && len(bmcForwarderDaemonSet.UID) > 0 {
 				// If bmcForwarderDaemonSet exist
 				restart := false
 				if bmcForwarderDaemonSet.ObjectMeta.Annotations != nil && len(bmcForwarderDaemonSet.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation]) > 0 {
