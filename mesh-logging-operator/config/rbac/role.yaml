@@ -1,0 +1,132 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - alertpatterns
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - alertpatterns/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - alertpatterns/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - loggings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - loggings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - loggings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - parsers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - parsers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - parsers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - throttles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - throttles/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - logging.mesh.hkjc.org.hk
+  resources:
+  - throttles/status
+  verbs:
+  - get
+  - patch
+  - update
