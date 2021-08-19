@@ -22,9 +22,11 @@ import (
 
 	"encoding/hex"
 	"fmt"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,24 +145,24 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctx := context.Background()
 	log := ctrllog.FromContext(ctx)
-	currentTimestamp := now.Unix()
+	currentTimestamp := time.Now().Unix()
 
 	ticker := time.NewTicker(time.Duration(r.BasicConfig.WatchInterval) * time.Second)
 	go func() {
 		for range ticker.C {
 			var existBmcForwarderConfigHash string
-			var existBmcForwarderConfigModified int
+			var existBmcForwarderConfigModified int64
 			existBmcForwarderConfig := &corev1.ConfigMap{}
 			_ = r.Get(ctx, client.ObjectKey{
 				Namespace: r.BasicConfig.OperatorNamespace,
 				Name:      "bmc-forwarder",
 			}, existBmcForwarderConfig)
-			if existBmcForwarderConfig != nil {
-				if existBmcForwarderConfig.ObjectMeta.Annotations && existBmcForwarderConfig.ObjectMeta.Annotations["hkjc.org.hk/checksum"] {
+			if len(existBmcForwarderConfig.UID) > 0 {
+				if existBmcForwarderConfig.ObjectMeta.Annotations != nil && len(existBmcForwarderConfig.ObjectMeta.Annotations["hkjc.org.hk/checksum"]) > 0 {
 					existBmcForwarderConfigHash = existBmcForwarderConfig.ObjectMeta.Annotations["hkjc.org.hk/checksum"]
 				}
-				if existBmcForwarderConfig.ObjectMeta.Annotations && existBmcForwarderConfig.ObjectMeta.Annotations["hkjc.org.hk/modified"] {
-					existBmcForwarderConfigModified = int(existBmcForwarderConfig.ObjectMeta.Annotations["hkjc.org.hk/modified"])
+				if existBmcForwarderConfig.ObjectMeta.Annotations != nil && len(existBmcForwarderConfig.ObjectMeta.Annotations["hkjc.org.hk/modified"]) > 0 {
+					existBmcForwarderConfigModified, _ = strconv.ParseInt(existBmcForwarderConfig.ObjectMeta.Annotations["hkjc.org.hk/modified"], 0, 64)
 				}
 			}
 
@@ -189,7 +191,7 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						Namespace: r.BasicConfig.OperatorNamespace,
 						Annotations: map[string]string{
 							"hkjc.org.hk/checksum": bmcForwarderConfigHash,
-							"hkjc.org.hk/modified": currentTimestamp,
+							"hkjc.org.hk/modified": strconv.FormatInt(currentTimestamp, 10),
 						},
 					},
 					Data: map[string]string{
@@ -203,7 +205,7 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						alertPatternConfigMap.ObjectMeta.Annotations = map[string]string{}
 					}
 					alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/checksum"] = bmcForwarderConfigHash
-					alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/modified"] = currentTimestamp
+					alertPatternConfigMap.ObjectMeta.Annotations["hkjc.org.hk/modified"] = strconv.FormatInt(currentTimestamp, 10)
 					alertPatternConfigMap.Data = map[string]string{
 						"alert-pattern.conf": bmcForwarderConfig,
 					}
@@ -214,15 +216,15 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}
 			}
 
-			bmcForwarderDaemonSet := &corev1.DeamonSet{}
+			bmcForwarderDaemonSet := &v1.DaemonSet{}
 			_ = r.Get(ctx, client.ObjectKey{
 				Namespace: r.BasicConfig.OperatorNamespace,
 				Name:      r.BasicConfig.BmcForwarderName,
 			}, bmcForwarderDaemonSet)
-			if bmcForwarderDaemonSet != nil {
+			if len(bmcForwarderDaemonSet.UID )>0 {
 				restart := false
-				if bmcForwarderDaemonSet.ObjectMeta.Annotations && bmcForwarderDaemonSet.ObjectMeta.Annotations["hkjc.org.hk/restartTimestamp"] {
-					restartTimestamp := int(bmcForwarderDaemonSet.ObjectMeta.Annotations["hkjc.org.hk/restartTimestamp"])
+				if bmcForwarderDaemonSet.ObjectMeta.Annotations != nil && len(bmcForwarderDaemonSet.ObjectMeta.Annotations["hkjc.org.hk/restartTimestamp"]) > 0 {
+					restartTimestamp,_ := strconv.ParseInt(bmcForwarderDaemonSet.ObjectMeta.Annotations["hkjc.org.hk/restartTimestamp"], 10, 64)
 					if (currentTimestamp-restartTimestamp) > 60*60 && restartTimestamp < existBmcForwarderConfigModified {
 						restart = true
 					}
