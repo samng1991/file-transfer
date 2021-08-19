@@ -94,49 +94,49 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		for range ticker.C {
 			currentTimestamp := time.Now().Unix()
 
-			// Get exist bmc forwarder micro-service config and its info
-			var existBmcForwarderMicroServiceConfigHash string
-			var existBmcForwarderMicroServiceConfigModified int64
+			// Get exist bmc forwarder microservice config and its info
+			var existBmcForwarderMicroserviceConfigHash string
+			var existBmcForwarderMicroserviceConfigModified int64
 			existBmcForwarderConfig := &corev1.ConfigMap{}
 			err := r.Get(ctx, client.ObjectKey{
 				Namespace: r.BasicConfig.OperatorNamespace,
-				Name:      r.BasicConst.BmcForwarderMicroServiceConfig,
+				Name:      r.BasicConst.BmcForwarderMicroserviceConfig,
 			}, existBmcForwarderConfig)
 			if err == nil && len(existBmcForwarderConfig.UID) > 0 {
 				if existBmcForwarderConfig.ObjectMeta.Annotations != nil && len(existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation]) > 0 {
-					existBmcForwarderMicroServiceConfigHash = existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation]
+					existBmcForwarderMicroserviceConfigHash = existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation]
 				}
 				if existBmcForwarderConfig.ObjectMeta.Annotations != nil && len(existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ModifiedAnnotation]) > 0 {
-					existBmcForwarderMicroServiceConfigModified, _ = strconv.ParseInt(existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ModifiedAnnotation], 10, 64)
+					existBmcForwarderMicroserviceConfigModified, _ = strconv.ParseInt(existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ModifiedAnnotation], 10, 64)
 				}
 			}
 
-			// Load current bmc forwarder micro-service config and its info
-			var bmcForwarderMicroServiceConfig = ""
+			// Load current bmc forwarder microservice config and its info
+			var bmcForwarderMicroserviceConfig = ""
 			var alertPatterns loggingv1alpha1.AlertPatternList
 			if err := r.List(ctx, &alertPatterns); err == nil {
 				log.Info("Loading AlertPattern")
 				alertPatternsConfig, err := alertPatterns.Load()
 				if err == nil {
-					bmcForwarderMicroServiceConfig = bmcForwarderMicroServiceConfig + alertPatternsConfig
+					bmcForwarderMicroserviceConfig = bmcForwarderMicroserviceConfig + alertPatternsConfig
 				} else {
 					log.Error(err, "Failed to load AlertPattern")
 				}
 			} else {
 				log.Error(err, "Unable to list AlertPattern")
 			}
-			bmcForwarderConfigMD5 := md5.Sum([]byte(bmcForwarderMicroServiceConfig))
+			bmcForwarderConfigMD5 := md5.Sum([]byte(bmcForwarderMicroserviceConfig))
 			bmcForwarderConfigHash := hex.EncodeToString(bmcForwarderConfigMD5[:])
 
-			// Check current and exist bmcForwarderMicroServiceConfig checksum
-			if existBmcForwarderMicroServiceConfigHash != bmcForwarderConfigHash {
-				// If current and exist bmcForwarderMicroServiceConfig checksum not same
-				// Create a new ConfigMap for current bmcForwarderMicroServiceConfig
+			// Check current and exist bmcForwarderMicroserviceConfig checksum
+			if existBmcForwarderMicroserviceConfigHash != bmcForwarderConfigHash {
+				// If current and exist bmcForwarderMicroserviceConfig checksum not same
+				// Create a new ConfigMap for current bmcForwarderMicroserviceConfig
 				log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
-				existBmcForwarderMicroServiceConfigModified = currentTimestamp
+				existBmcForwarderMicroserviceConfigModified = currentTimestamp
 				alertPatternConfigMap := &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      r.BasicConst.BmcForwarderMicroServiceConfig,
+						Name:      r.BasicConst.BmcForwarderMicroserviceConfig,
 						Namespace: r.BasicConfig.OperatorNamespace,
 						Annotations: map[string]string{
 							r.BasicConst.ChecksumAnnotation: bmcForwarderConfigHash,
@@ -144,11 +144,11 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						},
 					},
 					Data: map[string]string{
-						"alert-pattern.conf": bmcForwarderMicroServiceConfig,
+						"alert-pattern.conf": bmcForwarderMicroserviceConfig,
 					},
 				}
 
-				// Create or update current bmcForwarderMicroServiceConfig to k8s
+				// Create or update current bmcForwarderMicroserviceConfig to k8s
 				log.Info("Create or update configmap resource for AlertPattern")
 				if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, alertPatternConfigMap, func() error {
 					if alertPatternConfigMap.ObjectMeta.Annotations == nil {
@@ -157,7 +157,7 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					alertPatternConfigMap.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation] = bmcForwarderConfigHash
 					alertPatternConfigMap.ObjectMeta.Annotations[r.BasicConst.ModifiedAnnotation] = strconv.FormatInt(currentTimestamp, 10)
 					alertPatternConfigMap.Data = map[string]string{
-						"alert-pattern.conf": bmcForwarderMicroServiceConfig,
+						"alert-pattern.conf": bmcForwarderMicroserviceConfig,
 					}
 					alertPatternConfigMap.SetOwnerReferences(nil)
 					return nil
@@ -179,10 +179,10 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				if bmcForwarderDaemonSet.Spec.Template.ObjectMeta.Annotations != nil && len(bmcForwarderDaemonSet.Spec.Template.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation]) > 0 {
 					// If bmcForwarderDaemonSet restartTimestamp annotation exist
 					restartTimestamp, _ := strconv.ParseInt(bmcForwarderDaemonSet.Spec.Template.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation], 10, 64)
-					log.Info("Checking bmcForwarderDaemonSet need to restart or not", "currentTimestamp", currentTimestamp, "restartTimestamp", restartTimestamp, "existBmcForwarderMicroServiceConfigModified", existBmcForwarderMicroServiceConfigModified)
-					if (currentTimestamp-restartTimestamp) > int64(r.BasicConfig.MinRestartInterval)*60 && restartTimestamp < existBmcForwarderMicroServiceConfigModified {
-						// If interval greater than minRestartInterval and restartTimestamp less than existBmcForwarderMicroServiceConfigModified mark restart to true
-						log.Info("Mark bmcForwarderDaemonSet restart to true due to interval greater than minRestartInterval and restartTimestamp less than existBmcForwarderMicroServiceConfigModified")
+					log.Info("Checking bmcForwarderDaemonSet need to restart or not", "currentTimestamp", currentTimestamp, "restartTimestamp", restartTimestamp, "existBmcForwarderMicroserviceConfigModified", existBmcForwarderMicroserviceConfigModified)
+					if (currentTimestamp-restartTimestamp) > int64(r.BasicConfig.MinRestartInterval)*60 && restartTimestamp < existBmcForwarderMicroserviceConfigModified {
+						// If interval greater than minRestartInterval and restartTimestamp less than existBmcForwarderMicroserviceConfigModified mark restart to true
+						log.Info("Mark bmcForwarderDaemonSet restart to true due to interval greater than minRestartInterval and restartTimestamp less than existBmcForwarderMicroserviceConfigModified")
 						restart = true
 					}
 				} else {

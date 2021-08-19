@@ -107,7 +107,7 @@ func main() {
 			ChecksumAnnotation:             "hkjc.org.hk/checksum",
 			ModifiedAnnotation:             "hkjc.org.hk/modified",
 			RestartTimestampAnnotation:     "hkjc.org.hk/restartTimestamp",
-			BmcForwarderMicroServiceConfig: "bmc-forwarder-micro-service",
+			BmcForwarderMicroserviceConfig: "bmc-forwarder-microservice",
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Logging")
