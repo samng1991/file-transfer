@@ -175,9 +175,9 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			if err == nil && len(bmcForwarderDaemonSet.UID) > 0 {
 				// If bmcForwarderDaemonSet exist
 				restart := false
-				if bmcForwarderDaemonSet.ObjectMeta.Annotations != nil && len(bmcForwarderDaemonSet.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation]) > 0 {
+				if bmcForwarderDaemonSet.Spec.Template.ObjectMeta.Annotations != nil && len(bmcForwarderDaemonSet.Spec.Template.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation]) > 0 {
 					// If bmcForwarderDaemonSet restartTimestamp annotation exist
-					restartTimestamp, _ := strconv.ParseInt(bmcForwarderDaemonSet.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation], 10, 64)
+					restartTimestamp, _ := strconv.ParseInt(bmcForwarderDaemonSet.Spec.Template.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation], 10, 64)
 					log.Info("Checking bmcForwarderDaemonSet need to restart or not", "currentTimestamp", currentTimestamp, "restartTimestamp", restartTimestamp, "existBmcForwarderMicroServiceConfigModified", existBmcForwarderMicroServiceConfigModified)
 					if (currentTimestamp-restartTimestamp) > int64(r.BasicConfig.MinRestartInterval)*60 && restartTimestamp < existBmcForwarderMicroServiceConfigModified {
 						// If interval greater than minRestartInterval and restartTimestamp less than existBmcForwarderMicroServiceConfigModified mark restart to true
@@ -192,8 +192,10 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				if restart {
 					// Patching restartTimestamp annotation of bmcForwarderDaemonSet to restart
 					log.Info("Patching restartTimestamp annotation of bmcForwarderDaemonSet to restart")
-					patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s": "%d"}}}`, r.BasicConst.RestartTimestampAnnotation, currentTimestamp))
-					_ = r.Patch(ctx, bmcForwarderDaemonSet, client.RawPatch(types.StrategicMergePatchType, patch))
+					patch := []byte(fmt.Sprintf(`{"spec":{"template":{metadata":{"annotations":{"%s": "%d"}}}}}`, r.BasicConst.RestartTimestampAnnotation, currentTimestamp))
+					if err = r.Patch(ctx, bmcForwarderDaemonSet, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
+						log.Error(err, "Failed to path bmcForwarderDaemonSet")
+					}
 				}
 			} else {
 				// If bmcForwarderDaemonSet not exist
