@@ -192,9 +192,9 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				if restart {
 					// Patching restartTimestamp annotation of bmcForwarderDaemonSet to restart
 					log.Info("Patching restartTimestamp annotation of bmcForwarderDaemonSet to restart")
-					patch := []byte(fmt.Sprintf(`{"spec":{"template":{metadata":{"annotations":{"%s": "%d"}}}}}`, r.BasicConst.RestartTimestampAnnotation, currentTimestamp))
+					patch := []byte(fmt.Sprintf(`{"spec":{"template":{"metadata":{"annotations":{"%s": "%d"}}}}}`, r.BasicConst.RestartTimestampAnnotation, currentTimestamp))
 					if err = r.Patch(ctx, bmcForwarderDaemonSet, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
-						log.Error(err, "Failed to path bmcForwarderDaemonSet")
+						log.Error(err, "Failed to patch bmcForwarderDaemonSet")
 					}
 				}
 			} else {
