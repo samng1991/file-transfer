@@ -46,6 +46,9 @@ spec:
                       type: string
                     regex:
                       type: string
+                  required:
+                  - eventId
+                  - regex
                   type: object
                 type: array
               container:
@@ -54,17 +57,11 @@ spec:
                 description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                   Important: Run "make" to regenerate code after modifying this file'
                 type: string
+            required:
+            - pod
             type: object
           status:
             description: AlertPatternStatus defines the observed state of AlertPattern
-            properties:
-              effected:
-                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                  of cluster Important: Run "make" to regenerate code after modifying
-                  this file'
-                type: boolean
-            required:
-            - effected
             type: object
         type: object
     served: true
