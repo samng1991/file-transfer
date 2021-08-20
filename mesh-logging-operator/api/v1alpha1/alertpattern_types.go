@@ -36,8 +36,8 @@ type AlertPatternItem struct {
 type AlertPatternSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Container         string             `json:"container,omitempty"`
 	Pod               string             `json:"pod,omitempty"`
+	Container         string             `json:"container,omitempty"`
 	AlertPatternItems []AlertPatternItem `json:"alertPatterns,omitempty"`
 }
 
@@ -65,8 +65,13 @@ func (alertPattern AlertPattern) Load() (string, error) {
 
 	var buf bytes.Buffer
 	merge := func(elem AlertPatternItem) error {
+		encodedName := base64.StdEncoding.EncodeToString([]byte(alertPattern.ObjectMeta.Name))
+
 		// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
-		encodedPod := base64.StdEncoding.EncodeToString([]byte(alertPattern.Spec.Pod))
+		var pod = alertPattern.Spec.Pod
+		if len(pod) == 0 {
+			pod = "*"
+		}
 
 		var container = alertPattern.Spec.Container
 		if len(container) == 0 {
@@ -80,17 +85,17 @@ func (alertPattern AlertPattern) Load() (string, error) {
 		//	Emitter_Name  re_emitted
 		buf.WriteString("[Filter]\n")
 		buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
-		buf.WriteString(fmt.Sprintf("    Match   *.var.log.containers.%s_%s_%s-*.log\n", alertPattern.Spec.Pod, alertPattern.Namespace, container))
-		buf.WriteString(fmt.Sprintf("    Rule    $stream .* %s.$TAG false\n", encodedPod))
+		buf.WriteString(fmt.Sprintf("    Match   *.var.log.containers.%s_%s_%s-*.log\n", pod, alertPattern.Namespace, container))
+		buf.WriteString(fmt.Sprintf("    Rule    $stream .* %s.$TAG false\n", encodedName))
 
 		buf.WriteString("[Filter]\n")
 		buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
-		buf.WriteString(fmt.Sprintf("    Match   %s.*.var.log.containers.%s_%s_%s-*.log\n", encodedPod, alertPattern.Namespace, alertPattern.Namespace, container))
+		buf.WriteString(fmt.Sprintf("    Match   %s.*.var.log.containers.%s_%s_%s-*.log\n", encodedName, pod, alertPattern.Namespace, container))
 		buf.WriteString(fmt.Sprintf("    Rule    $log %s bmc.$TAG false\n", elem.Regex))
 
 		buf.WriteString("[Filter]\n")
 		buf.WriteString(fmt.Sprintf("    Name    record_modifier\n"))
-		buf.WriteString(fmt.Sprintf("    Match   bmc.%s.*\n", encodedPod))
+		buf.WriteString(fmt.Sprintf("    Match   bmc.%s.*\n", encodedName))
 		buf.WriteString(fmt.Sprintf("    Record  eventID %s\n", elem.EventId))
 
 		return nil

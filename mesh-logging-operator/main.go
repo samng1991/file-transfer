@@ -62,7 +62,7 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&bmcForwarderName, "bmc-forwarder-name", "fluentd-fluent-bit", "BMC forwarder daemonset name.")
+	flag.StringVar(&bmcForwarderName, "bmc-forwarder-name", "fluentd-fluent-bit-forwarder-bmc", "BMC forwarder daemonset name.")
 	flag.IntVar(&watchInterval, "watch-interval", 60, "The interval in second that operator to watch config change.")
 	flag.IntVar(&minRestartInterval, "min-restart-interval", 60, "The min interval in minute that operator would restart forwarder/aggregator for updating config.")
 	opts := zap.Options{
