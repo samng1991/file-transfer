@@ -129,6 +129,7 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			bmcForwarderConfigHash := hex.EncodeToString(bmcForwarderConfigMD5[:])
 
 			// Check current and exist bmcForwarderMicroserviceConfig checksum
+			log.Info("Comparing hash", "existBmcForwarderMicroserviceConfigHash", existBmcForwarderMicroserviceConfigHash, "bmcForwarderConfigHash", bmcForwarderConfigHash)
 			if existBmcForwarderMicroserviceConfigHash != bmcForwarderConfigHash {
 				// If current and exist bmcForwarderMicroserviceConfig checksum not same
 				// Create a new ConfigMap for current bmcForwarderMicroserviceConfig
