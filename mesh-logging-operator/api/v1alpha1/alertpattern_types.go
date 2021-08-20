@@ -23,6 +23,7 @@ import (
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sort"
 )
 
 type AlertPatternItem struct {
@@ -112,6 +113,16 @@ type AlertPatternList struct {
 
 func (alertPatterns AlertPatternList) Load() (string, error) {
 	log := ctrllog.FromContext(context.Background())
+
+	namespacedName := func(namespace string, name string) string {
+		return namespace + "_" + name
+	}
+
+	alertPatternItems := alertPatterns.Items
+	sort.SliceStable(alertPatternItems, func(i, j int) bool {
+		return namespacedName(alertPatternItems[i].Namespace, alertPatternItems[i].ObjectMeta.Name) <
+			namespacedName(alertPatternItems[j].Namespace, alertPatternItems[j].ObjectMeta.Name)
+	})
 
 	var alertPatternsConfig = ""
 	for _, alertPatternItem := range alertPatterns.Items {
