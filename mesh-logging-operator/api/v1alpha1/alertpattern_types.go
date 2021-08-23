@@ -27,17 +27,16 @@ import (
 )
 
 type AlertPatternItem struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	EventId string `json:"eventId"`
-	Regex   string `json:"regex"`
+	//+kubebuilder:validation:Required
+	EventId string `json:"eventId,omitempty"`
+	//+kubebuilder:validation:Required
+	Regex string `json:"regex,omitempty"`
 }
 
 // AlertPatternSpec defines the desired state of AlertPattern
 type AlertPatternSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	Pod               string             `json:"pod"`
+	//+kubebuilder:validation:Required
+	Pod               string             `json:"pod,omitempty"`
 	Container         string             `json:"container,omitempty"`
 	AlertPatternItems []AlertPatternItem `json:"alertPatterns,omitempty"`
 }
