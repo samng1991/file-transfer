@@ -36,8 +36,8 @@ type AlertPatternItem struct {
 // AlertPatternSpec defines the desired state of AlertPattern
 type AlertPatternSpec struct {
 	//+kubebuilder:validation:Required
-	Pod               string             `json:"pod,omitempty"`
-	Container         string             `json:"container,omitempty"`
+	Pod       string `json:"pod,omitempty"`
+	Container string `json:"container,omitempty"`
 	//+kubebuilder:validation:Required
 	AlertPatternItems []AlertPatternItem `json:"alertPatterns,omitempty"`
 }
