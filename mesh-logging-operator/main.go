@@ -55,6 +55,7 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var bmcForwarderName string
+	var logstashForwarderName string
 	var watchInterval int
 	var minRestartInterval int
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -63,6 +64,7 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&bmcForwarderName, "bmc-forwarder-name", "fluentd-fluent-bit-forwarder-bmc", "BMC forwarder daemonset name.")
+	flag.StringVar(&logstashForwarderName, "logstash-forwarder-name", "fluentd-fluent-bit-forwarder-logstash", "Logstash forwarder daemonset name.")
 	flag.IntVar(&watchInterval, "watch-interval", 60, "The interval in second that operator to watch config change.")
 	flag.IntVar(&minRestartInterval, "min-restart-interval", 60, "The min interval in minute that operator would restart forwarder/aggregator for updating config.")
 	opts := zap.Options{
@@ -98,10 +100,11 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		BasicConfig: operator.BasicConfig{
-			WatchInterval:      watchInterval,
-			MinRestartInterval: minRestartInterval,
-			OperatorNamespace:  operatorNamespace,
-			BmcForwarderName:   bmcForwarderName,
+			WatchInterval:         watchInterval,
+			MinRestartInterval:    minRestartInterval,
+			OperatorNamespace:     operatorNamespace,
+			BmcForwarderName:      bmcForwarderName,
+			LogstashForwarderName: logstashForwarderName,
 		},
 		BasicConst: operator.BasicConst{
 			ChecksumAnnotation:             "hkjc.org.hk/checksum",

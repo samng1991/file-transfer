@@ -83,6 +83,83 @@ func (r *LoggingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
+func (r *LoggingReconciler) getExistForwarderMicroserviceConfigInfo(ctx context.Context, configName string) (string, int64) {
+	var existForwarderMicroserviceConfigHash string
+	var existForwarderMicroserviceConfigModified int64
+	existForwarderConfig := &corev1.ConfigMap{}
+	err := r.Get(ctx, client.ObjectKey{
+		Namespace: r.BasicConfig.OperatorNamespace,
+		Name:      configName,
+	}, existForwarderConfig)
+	if err == nil && len(existForwarderConfig.UID) > 0 {
+		if existForwarderConfig.ObjectMeta.Annotations != nil && len(existForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation]) > 0 {
+			existForwarderMicroserviceConfigHash = existForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation]
+		}
+		if existForwarderConfig.ObjectMeta.Annotations != nil && len(existForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ModifiedAnnotation]) > 0 {
+			existForwarderMicroserviceConfigModified, _ = strconv.ParseInt(existForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ModifiedAnnotation], 10, 64)
+		}
+	}
+	return existForwarderMicroserviceConfigHash, existForwarderMicroserviceConfigModified
+}
+
+func (r *LoggingReconciler) loadBmcForwarderMicroserviceConfig(ctx context.Context) (string, string) {
+	log := ctrllog.FromContext(ctx)
+	var bmcForwarderMicroserviceConfig = ""
+	var alertPatterns loggingv1alpha1.AlertPatternList
+	if err := r.List(ctx, &alertPatterns); err == nil {
+		log.Info("Loading AlertPattern")
+		alertPatternsConfig, err := alertPatterns.Load()
+		if err == nil {
+			bmcForwarderMicroserviceConfig = bmcForwarderMicroserviceConfig + alertPatternsConfig
+		} else {
+			log.Error(err, "Failed to load AlertPattern")
+		}
+	} else {
+		log.Error(err, "Unable to list AlertPattern")
+	}
+	bmcForwarderConfigMD5 := md5.Sum([]byte(bmcForwarderMicroserviceConfig))
+	bmcForwarderConfigHash := hex.EncodeToString(bmcForwarderConfigMD5[:])
+	return bmcForwarderMicroserviceConfig, bmcForwarderConfigHash
+}
+
+func (r *LoggingReconciler) createOrUpdateForwarderMicroserviceConfigInfo(ctx context.Context, currentTimestamp int64,
+	forwarderMicroserviceConfigName string, configFileName string,
+	forwarderConfigHash string, forwarderMicroserviceConfig string) (string, int64) {
+	log := ctrllog.FromContext(ctx)
+	// Create a new ConfigMap for current forwarderMicroserviceConfig
+	log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      forwarderMicroserviceConfigName,
+			Namespace: r.BasicConfig.OperatorNamespace,
+			Annotations: map[string]string{
+				r.BasicConst.ChecksumAnnotation: forwarderConfigHash,
+				r.BasicConst.ModifiedAnnotation: strconv.FormatInt(currentTimestamp, 10),
+			},
+		},
+		Data: map[string]string{
+			configFileName: forwarderMicroserviceConfig,
+		},
+	}
+
+	// Create or update current forwarderMicroserviceConfig to k8s
+	log.Info("Create or update configmap resource for AlertPattern")
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, configMap, func() error {
+		if configMap.ObjectMeta.Annotations == nil {
+			configMap.ObjectMeta.Annotations = map[string]string{}
+		}
+		configMap.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation] = forwarderConfigHash
+		configMap.ObjectMeta.Annotations[r.BasicConst.ModifiedAnnotation] = strconv.FormatInt(currentTimestamp, 10)
+		configMap.Data = map[string]string{
+			configFileName: forwarderMicroserviceConfig,
+		}
+		configMap.SetOwnerReferences(nil)
+		return nil
+	}); err != nil {
+		log.Error(err, "Failed to create or update configmap resource for AlertPattern")
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctx := context.Background()
@@ -95,76 +172,19 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			currentTimestamp := time.Now().Unix()
 
 			// Get exist bmc forwarder microservice config and its info
-			var existBmcForwarderMicroserviceConfigHash string
-			var existBmcForwarderMicroserviceConfigModified int64
-			existBmcForwarderConfig := &corev1.ConfigMap{}
-			err := r.Get(ctx, client.ObjectKey{
-				Namespace: r.BasicConfig.OperatorNamespace,
-				Name:      r.BasicConst.BmcForwarderMicroserviceConfig,
-			}, existBmcForwarderConfig)
-			if err == nil && len(existBmcForwarderConfig.UID) > 0 {
-				if existBmcForwarderConfig.ObjectMeta.Annotations != nil && len(existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation]) > 0 {
-					existBmcForwarderMicroserviceConfigHash = existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation]
-				}
-				if existBmcForwarderConfig.ObjectMeta.Annotations != nil && len(existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ModifiedAnnotation]) > 0 {
-					existBmcForwarderMicroserviceConfigModified, _ = strconv.ParseInt(existBmcForwarderConfig.ObjectMeta.Annotations[r.BasicConst.ModifiedAnnotation], 10, 64)
-				}
-			}
+			existBmcForwarderMicroserviceConfigHash, existBmcForwarderMicroserviceConfigModified := r.getExistForwarderMicroserviceConfigInfo(ctx, r.BasicConst.BmcForwarderMicroserviceConfig)
 
 			// Load current bmc forwarder microservice config and its info
-			var bmcForwarderMicroserviceConfig = ""
-			var alertPatterns loggingv1alpha1.AlertPatternList
-			if err := r.List(ctx, &alertPatterns); err == nil {
-				log.Info("Loading AlertPattern")
-				alertPatternsConfig, err := alertPatterns.Load()
-				if err == nil {
-					bmcForwarderMicroserviceConfig = bmcForwarderMicroserviceConfig + alertPatternsConfig
-				} else {
-					log.Error(err, "Failed to load AlertPattern")
-				}
-			} else {
-				log.Error(err, "Unable to list AlertPattern")
-			}
-			bmcForwarderConfigMD5 := md5.Sum([]byte(bmcForwarderMicroserviceConfig))
-			bmcForwarderConfigHash := hex.EncodeToString(bmcForwarderConfigMD5[:])
+			bmcForwarderMicroserviceConfig, bmcForwarderConfigHash := r.loadBmcForwarderMicroserviceConfig(ctx)
 
 			// Check current and exist bmcForwarderMicroserviceConfig checksum
 			log.Info("Comparing hash", "existBmcForwarderMicroserviceConfigHash", existBmcForwarderMicroserviceConfigHash, "bmcForwarderConfigHash", bmcForwarderConfigHash)
 			if existBmcForwarderMicroserviceConfigHash != bmcForwarderConfigHash {
 				// If current and exist bmcForwarderMicroserviceConfig checksum not same
-				// Create a new ConfigMap for current bmcForwarderMicroserviceConfig
-				log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
 				existBmcForwarderMicroserviceConfigModified = currentTimestamp
-				alertPatternConfigMap := &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      r.BasicConst.BmcForwarderMicroserviceConfig,
-						Namespace: r.BasicConfig.OperatorNamespace,
-						Annotations: map[string]string{
-							r.BasicConst.ChecksumAnnotation: bmcForwarderConfigHash,
-							r.BasicConst.ModifiedAnnotation: strconv.FormatInt(currentTimestamp, 10),
-						},
-					},
-					Data: map[string]string{
-						"alert-pattern.conf": bmcForwarderMicroserviceConfig,
-					},
-				}
-
-				// Create or update current bmcForwarderMicroserviceConfig to k8s
-				log.Info("Create or update configmap resource for AlertPattern")
-				if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, alertPatternConfigMap, func() error {
-					if alertPatternConfigMap.ObjectMeta.Annotations == nil {
-						alertPatternConfigMap.ObjectMeta.Annotations = map[string]string{}
-					}
-					alertPatternConfigMap.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation] = bmcForwarderConfigHash
-					alertPatternConfigMap.ObjectMeta.Annotations[r.BasicConst.ModifiedAnnotation] = strconv.FormatInt(currentTimestamp, 10)
-					alertPatternConfigMap.Data = map[string]string{
-						"alert-pattern.conf": bmcForwarderMicroserviceConfig,
-					}
-					alertPatternConfigMap.SetOwnerReferences(nil)
-					return nil
-				}); err != nil {
-					log.Error(err, "Failed to create or update configmap resource for AlertPattern")
-				}
+				r.createOrUpdateForwarderMicroserviceConfigInfo(ctx, currentTimestamp,
+					r.BasicConst.BmcForwarderMicroserviceConfig, "alert-pattern.conf",
+					bmcForwarderConfigHash, bmcForwarderMicroserviceConfig)
 			}
 
 			// Get exist bmcForwarderDaemonSet

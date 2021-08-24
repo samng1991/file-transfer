@@ -74,15 +74,15 @@ func (alertPattern AlertPattern) Load() (string, error) {
 			container = "*"
 		}
 
-		buf.WriteString("[Filter]\n")
-		buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
-		buf.WriteString(fmt.Sprintf("    Match   container.var.log.containers.%s_%s_%s-*.log\n", pod, alertPattern.Namespace, container))
-		buf.WriteString(fmt.Sprintf("    Rule    $stream .* %s.$TAG false\n", encodedNamespacedName))
+		//buf.WriteString("[Filter]\n")
+		//buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
+		//buf.WriteString(fmt.Sprintf("    Match   container.var.log.containers.%s_%s_%s-*.log\n", pod, alertPattern.Namespace, container))
+		//buf.WriteString(fmt.Sprintf("    Rule    $stream .* %s.$TAG false\n", encodedNamespacedName))
 
 		buf.WriteString("[Filter]\n")
 		buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
-		buf.WriteString(fmt.Sprintf("    Match   %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, alertPattern.Namespace, container))
-		buf.WriteString(fmt.Sprintf("    Rule    $message %s bmc.$TAG false\n", elem.Regex))
+		buf.WriteString(fmt.Sprintf("    Match   container.var.log.containers.%s_%s_%s-*.log\n", pod, alertPattern.Namespace, container))
+		buf.WriteString(fmt.Sprintf("    Rule    $message %s bmc.%s.$TAG false\n", elem.Regex, encodedNamespacedName))
 
 		buf.WriteString("[Filter]\n")
 		buf.WriteString(fmt.Sprintf("    Name    record_modifier\n"))
@@ -93,7 +93,7 @@ func (alertPattern AlertPattern) Load() (string, error) {
 	}
 
 	for _, elem := range alertPattern.Spec.AlertPatternItems {
-		log.Info("Merging AlertPatternItem", "EventId", elem.EventId, "Regex", elem.Regex)
+		log.Info("Merging AlertPatternItem", "Namespace", alertPattern.Namespace, "Name", alertPattern.ObjectMeta.Name, "EventId", elem.EventId, "Regex", elem.Regex)
 		if err := merge(elem); err != nil {
 			return "", err
 		}
