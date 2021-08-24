@@ -124,7 +124,7 @@ func (r *LoggingReconciler) loadBmcForwarderMicroserviceConfig(ctx context.Conte
 
 func (r *LoggingReconciler) createOrUpdateForwarderMicroserviceConfigInfo(ctx context.Context, currentTimestamp int64,
 	forwarderMicroserviceConfigName string, configFileName string,
-	forwarderConfigHash string, forwarderMicroserviceConfig string) (string, int64) {
+	forwarderConfigHash string, forwarderMicroserviceConfig string) {
 	log := ctrllog.FromContext(ctx)
 	// Create a new ConfigMap for current forwarderMicroserviceConfig
 	log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
@@ -190,7 +190,7 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			// Get exist bmcForwarderDaemonSet
 			log.Info("Getting bmcForwarderDaemonSet")
 			bmcForwarderDaemonSet := &v1.DaemonSet{}
-			err = r.Get(ctx, client.ObjectKey{
+			err := r.Get(ctx, client.ObjectKey{
 				Namespace: r.BasicConfig.OperatorNamespace,
 				Name:      r.BasicConfig.BmcForwarderName,
 			}, bmcForwarderDaemonSet)
