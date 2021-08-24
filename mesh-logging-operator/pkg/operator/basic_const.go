@@ -5,4 +5,5 @@ type BasicConst struct {
 	ModifiedAnnotation             string
 	RestartTimestampAnnotation     string
 	BmcForwarderMicroserviceConfig string
+	LogstashForwarderMicroserviceConfig string
 }

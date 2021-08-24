@@ -50,6 +50,10 @@ type Throttle struct {
 	Status ThrottleStatus `json:"status,omitempty"`
 }
 
+func (throttle Throttle) Load() (string, error) {
+	return "", nil
+}
+
 //+kubebuilder:object:root=true
 
 // ThrottleList contains a list of Throttle
@@ -57,6 +61,10 @@ type ThrottleList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Throttle `json:"items"`
+}
+
+func (throttleList ThrottleList) Load() (string, error) {
+	return "", nil
 }
 
 func init() {

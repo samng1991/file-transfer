@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"hkjc.org.hk/mesh/logging-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sort"
@@ -65,7 +66,7 @@ func (alertPattern AlertPattern) Load() (string, error) {
 
 	var buf bytes.Buffer
 	merge := func(elem AlertPatternItem) error {
-		encodedNamespacedName := base64.StdEncoding.EncodeToString([]byte(alertPattern.Namespace + "_" + alertPattern.ObjectMeta.Name))
+		encodedNamespacedName := base64.StdEncoding.EncodeToString([]byte(utils.ExObjectMeta(alertPattern.ObjectMeta).GetNamespacedName()))
 
 		// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
 		var pod = alertPattern.Spec.Pod + "-*"
@@ -73,11 +74,6 @@ func (alertPattern AlertPattern) Load() (string, error) {
 		if len(container) == 0 {
 			container = "*"
 		}
-
-		//buf.WriteString("[Filter]\n")
-		//buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
-		//buf.WriteString(fmt.Sprintf("    Match   container.var.log.containers.%s_%s_%s-*.log\n", pod, alertPattern.Namespace, container))
-		//buf.WriteString(fmt.Sprintf("    Rule    $stream .* %s.$TAG false\n", encodedNamespacedName))
 
 		buf.WriteString("[Filter]\n")
 		buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
@@ -111,26 +107,22 @@ type AlertPatternList struct {
 	Items           []AlertPattern `json:"items"`
 }
 
-func (alertPatterns AlertPatternList) Load() (string, error) {
+func (alertPatternList AlertPatternList) Load() (string, error) {
 	log := ctrllog.FromContext(context.Background())
 
-	namespacedName := func(namespace string, name string) string {
-		return namespace + "_" + name
-	}
-
-	alertPatternItems := alertPatterns.Items
-	sort.SliceStable(alertPatternItems, func(i, j int) bool {
-		return namespacedName(alertPatternItems[i].Namespace, alertPatternItems[i].ObjectMeta.Name) <
-			namespacedName(alertPatternItems[j].Namespace, alertPatternItems[j].ObjectMeta.Name)
+	alertPatterns := alertPatternList.Items
+	sort.SliceStable(alertPatterns, func(i, j int) bool {
+		return utils.ExObjectMeta(alertPatterns[i].ObjectMeta).GetNamespacedName() <
+			utils.ExObjectMeta(alertPatterns[j].ObjectMeta).GetNamespacedName()
 	})
 
 	var alertPatternsConfig = ""
-	for _, alertPatternItem := range alertPatterns.Items {
-		alertPatternConfig, err := alertPatternItem.Load()
+	for _, alertPattern := range alertPatterns {
+		alertPatternConfig, err := alertPattern.Load()
 		if err == nil {
 			alertPatternsConfig = alertPatternsConfig + alertPatternConfig
 		} else {
-			log.Error(err, "Unable to load AlertPattern")
+			log.Error(err, "Unable to load alert pattern config", "namespacedName", utils.ExObjectMeta(alertPattern.ObjectMeta).GetNamespacedName())
 		}
 	}
 

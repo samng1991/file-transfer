@@ -21,8 +21,10 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"hkjc.org.hk/mesh/logging-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sort"
 )
 
 type SingleLineParser struct {
@@ -150,6 +152,32 @@ type ParserList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Parser `json:"items"`
+}
+
+func (parserList ParserList) Load() (string, error) {
+	log := ctrllog.FromContext(context.Background())
+
+	namespacedName := func(namespace string, name string) string {
+		return namespace + "_" + name
+	}
+
+	parsers := parserList.Items
+	sort.SliceStable(parsers, func(i, j int) bool {
+		return utils.ExObjectMeta(parsers[i].ObjectMeta).GetNamespacedName() <
+			utils.ExObjectMeta(parsers[j].ObjectMeta).GetNamespacedName()
+	})
+
+	var parsersConfig = ""
+	for _, parser := range parsers {
+		parserConfig, err := parser.Load()
+		if err == nil {
+			parsersConfig = parsersConfig + parserConfig
+		} else {
+			log.Error(err, "Unable to load parser config", "namespacedName", utils.ExObjectMeta(parser.ObjectMeta).GetNamespacedName())
+		}
+	}
+
+	return parsersConfig, nil
 }
 
 func init() {

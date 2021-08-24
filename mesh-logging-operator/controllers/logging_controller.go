@@ -102,29 +102,72 @@ func (r *LoggingReconciler) getExistForwarderMicroserviceConfigInfo(ctx context.
 	return existForwarderMicroserviceConfigHash, existForwarderMicroserviceConfigModified
 }
 
-func (r *LoggingReconciler) loadBmcForwarderMicroserviceConfig(ctx context.Context) (string, string) {
+func (r *LoggingReconciler) loadBmcForwarderMicroserviceConfig(ctx context.Context) (map[string]string, string) {
 	log := ctrllog.FromContext(ctx)
+
 	var bmcForwarderMicroserviceConfig = ""
+	var bmcForwarderMicroserviceConfigMap = map[string]string{}
+
 	var alertPatterns loggingv1alpha1.AlertPatternList
 	if err := r.List(ctx, &alertPatterns); err == nil {
-		log.Info("Loading AlertPattern")
+		log.Info("Loading alertPatterns")
 		alertPatternsConfig, err := alertPatterns.Load()
 		if err == nil {
-			bmcForwarderMicroserviceConfig = bmcForwarderMicroserviceConfig + alertPatternsConfig
+			bmcForwarderMicroserviceConfig += alertPatternsConfig
+			bmcForwarderMicroserviceConfigMap["alert-pattern.conf"] = alertPatternsConfig
 		} else {
-			log.Error(err, "Failed to load AlertPattern")
+			log.Error(err, "Failed to load alertPatterns")
 		}
 	} else {
-		log.Error(err, "Unable to list AlertPattern")
+		log.Error(err, "Unable to list alertPatterns")
 	}
+
 	bmcForwarderConfigMD5 := md5.Sum([]byte(bmcForwarderMicroserviceConfig))
 	bmcForwarderConfigHash := hex.EncodeToString(bmcForwarderConfigMD5[:])
-	return bmcForwarderMicroserviceConfig, bmcForwarderConfigHash
+	return bmcForwarderMicroserviceConfigMap, bmcForwarderConfigHash
+}
+
+func (r *LoggingReconciler) loadLogstashForwarderMicroserviceConfig(ctx context.Context) (map[string]string, string) {
+	log := ctrllog.FromContext(ctx)
+
+	var logstashForwarderMicroserviceConfig = ""
+	var logstashForwarderMicroserviceConfigMap = map[string]string{}
+
+	var parsers loggingv1alpha1.ParserList
+	if err := r.List(ctx, &parsers); err == nil {
+		log.Info("Loading parsers")
+		parsersConfig, err := parsers.Load()
+		if err == nil {
+			logstashForwarderMicroserviceConfig += parsersConfig
+			logstashForwarderMicroserviceConfigMap["parser.conf"] = parsersConfig
+		} else {
+			log.Error(err, "Failed to load parsers")
+		}
+	} else {
+		log.Error(err, "Unable to list parsers")
+	}
+
+	var throttles loggingv1alpha1.ThrottleList
+	if err := r.List(ctx, &throttles); err == nil {
+		log.Info("Loading throttles")
+		throttlesConfig, err := throttles.Load()
+		if err == nil {
+			logstashForwarderMicroserviceConfig += throttlesConfig
+			logstashForwarderMicroserviceConfigMap["throttles.conf"] = throttlesConfig
+		} else {
+			log.Error(err, "Failed to load throttles")
+		}
+	} else {
+		log.Error(err, "Unable to list throttles")
+	}
+
+	logstashForwarderConfigMD5 := md5.Sum([]byte(logstashForwarderMicroserviceConfig))
+	logstashForwarderConfigHash := hex.EncodeToString(logstashForwarderConfigMD5[:])
+	return logstashForwarderMicroserviceConfigMap, logstashForwarderConfigHash
 }
 
 func (r *LoggingReconciler) createOrUpdateForwarderMicroserviceConfigInfo(ctx context.Context, currentTimestamp int64,
-	forwarderMicroserviceConfigName string, configFileName string,
-	forwarderConfigHash string, forwarderMicroserviceConfig string) {
+	forwarderMicroserviceConfigName string, forwarderConfigHash string, forwarderMicroserviceConfigMap map[string]string) {
 	log := ctrllog.FromContext(ctx)
 	// Create a new ConfigMap for current forwarderMicroserviceConfig
 	log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
@@ -137,9 +180,7 @@ func (r *LoggingReconciler) createOrUpdateForwarderMicroserviceConfigInfo(ctx co
 				r.BasicConst.ModifiedAnnotation: strconv.FormatInt(currentTimestamp, 10),
 			},
 		},
-		Data: map[string]string{
-			configFileName: forwarderMicroserviceConfig,
-		},
+		Data: forwarderMicroserviceConfigMap,
 	}
 
 	// Create or update current forwarderMicroserviceConfig to k8s
@@ -150,13 +191,51 @@ func (r *LoggingReconciler) createOrUpdateForwarderMicroserviceConfigInfo(ctx co
 		}
 		configMap.ObjectMeta.Annotations[r.BasicConst.ChecksumAnnotation] = forwarderConfigHash
 		configMap.ObjectMeta.Annotations[r.BasicConst.ModifiedAnnotation] = strconv.FormatInt(currentTimestamp, 10)
-		configMap.Data = map[string]string{
-			configFileName: forwarderMicroserviceConfig,
-		}
+		configMap.Data = forwarderMicroserviceConfigMap
 		configMap.SetOwnerReferences(nil)
 		return nil
 	}); err != nil {
 		log.Error(err, "Failed to create or update configmap resource for AlertPattern")
+	}
+}
+
+func (r *LoggingReconciler) restartForwarderDaemonSet(ctx context.Context, forwarderName string, currentTimestamp int64, existForwarderMicroserviceConfigModified int64) {
+	log := ctrllog.FromContext(ctx)
+	log.Info("Getting bmcForwarderDaemonSet")
+
+	forwarderDaemonSet := &v1.DaemonSet{}
+	err := r.Get(ctx, client.ObjectKey{
+		Namespace: r.BasicConfig.OperatorNamespace,
+		Name:      forwarderName,
+	}, forwarderDaemonSet)
+	if err == nil && len(forwarderDaemonSet.UID) > 0 {
+		// If forwarderDaemonSet exist
+		restart := false
+		if forwarderDaemonSet.Spec.Template.ObjectMeta.Annotations != nil && len(forwarderDaemonSet.Spec.Template.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation]) > 0 {
+			// If forwarderDaemonSet restartTimestamp annotation exist
+			restartTimestamp, _ := strconv.ParseInt(forwarderDaemonSet.Spec.Template.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation], 10, 64)
+			log.Info("Checking forwarderDaemonSet need to restart or not", "currentTimestamp", currentTimestamp, "restartTimestamp", restartTimestamp, "existForwarderMicroserviceConfigModified", existForwarderMicroserviceConfigModified)
+			if (currentTimestamp-restartTimestamp) > int64(r.BasicConfig.MinRestartInterval)*60 && restartTimestamp < existForwarderMicroserviceConfigModified {
+				// If interval greater than minRestartInterval and restartTimestamp less than existForwarderMicroserviceConfigModified mark restart to true
+				log.Info("Mark forwarderDaemonSet restart to true due to interval greater than minRestartInterval and restartTimestamp less than existForwarderMicroserviceConfigModified")
+				restart = true
+			}
+		} else {
+			// If forwarderDaemonSet restartTimestamp annotation not exist mark restart to true
+			log.Info("Mark forwarderDaemonSet restart to true due to missing restartTimestamp annotation")
+			restart = true
+		}
+		if restart {
+			// Patching restartTimestamp annotation of forwarderDaemonSet to restart
+			log.Info("Patching restartTimestamp annotation of forwarderDaemonSet to restart")
+			patch := []byte(fmt.Sprintf(`{"spec":{"template":{"metadata":{"annotations":{"%s": "%d"}}}}}`, r.BasicConst.RestartTimestampAnnotation, currentTimestamp))
+			if err = r.Patch(ctx, forwarderDaemonSet, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
+				log.Error(err, "Failed to patch forwarderDaemonSet")
+			}
+		}
+	} else {
+		// If forwarderDaemonSet not exist
+		log.Error(err, "Unable to get forwarderDaemonSet")
 	}
 }
 
@@ -171,11 +250,13 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		for range ticker.C {
 			currentTimestamp := time.Now().Unix()
 
-			// Get exist bmc forwarder microservice config and its info
+			// Get exist forwarder microservice config and its info
 			existBmcForwarderMicroserviceConfigHash, existBmcForwarderMicroserviceConfigModified := r.getExistForwarderMicroserviceConfigInfo(ctx, r.BasicConst.BmcForwarderMicroserviceConfig)
+			existLogstashForwarderMicroserviceConfigHash, existLogstashForwarderMicroserviceConfigModified := r.getExistForwarderMicroserviceConfigInfo(ctx, r.BasicConst.LogstashForwarderMicroserviceConfig)
 
-			// Load current bmc forwarder microservice config and its info
-			bmcForwarderMicroserviceConfig, bmcForwarderConfigHash := r.loadBmcForwarderMicroserviceConfig(ctx)
+			// Load current forwarder microservice config and its info
+			bmcForwarderMicroserviceConfigMap, bmcForwarderConfigHash := r.loadBmcForwarderMicroserviceConfig(ctx)
+			logstashForwarderMicroserviceConfigMap, logstashForwarderConfigHash := r.loadLogstashForwarderMicroserviceConfig(ctx)
 
 			// Check current and exist bmcForwarderMicroserviceConfig checksum
 			log.Info("Comparing hash", "existBmcForwarderMicroserviceConfigHash", existBmcForwarderMicroserviceConfigHash, "bmcForwarderConfigHash", bmcForwarderConfigHash)
@@ -183,46 +264,20 @@ func (r *LoggingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				// If current and exist bmcForwarderMicroserviceConfig checksum not same
 				existBmcForwarderMicroserviceConfigModified = currentTimestamp
 				r.createOrUpdateForwarderMicroserviceConfigInfo(ctx, currentTimestamp,
-					r.BasicConst.BmcForwarderMicroserviceConfig, "alert-pattern.conf",
-					bmcForwarderConfigHash, bmcForwarderMicroserviceConfig)
+					r.BasicConst.BmcForwarderMicroserviceConfig, bmcForwarderConfigHash, bmcForwarderMicroserviceConfigMap)
 			}
 
-			// Get exist bmcForwarderDaemonSet
-			log.Info("Getting bmcForwarderDaemonSet")
-			bmcForwarderDaemonSet := &v1.DaemonSet{}
-			err := r.Get(ctx, client.ObjectKey{
-				Namespace: r.BasicConfig.OperatorNamespace,
-				Name:      r.BasicConfig.BmcForwarderName,
-			}, bmcForwarderDaemonSet)
-			if err == nil && len(bmcForwarderDaemonSet.UID) > 0 {
-				// If bmcForwarderDaemonSet exist
-				restart := false
-				if bmcForwarderDaemonSet.Spec.Template.ObjectMeta.Annotations != nil && len(bmcForwarderDaemonSet.Spec.Template.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation]) > 0 {
-					// If bmcForwarderDaemonSet restartTimestamp annotation exist
-					restartTimestamp, _ := strconv.ParseInt(bmcForwarderDaemonSet.Spec.Template.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation], 10, 64)
-					log.Info("Checking bmcForwarderDaemonSet need to restart or not", "currentTimestamp", currentTimestamp, "restartTimestamp", restartTimestamp, "existBmcForwarderMicroserviceConfigModified", existBmcForwarderMicroserviceConfigModified)
-					if (currentTimestamp-restartTimestamp) > int64(r.BasicConfig.MinRestartInterval)*60 && restartTimestamp < existBmcForwarderMicroserviceConfigModified {
-						// If interval greater than minRestartInterval and restartTimestamp less than existBmcForwarderMicroserviceConfigModified mark restart to true
-						log.Info("Mark bmcForwarderDaemonSet restart to true due to interval greater than minRestartInterval and restartTimestamp less than existBmcForwarderMicroserviceConfigModified")
-						restart = true
-					}
-				} else {
-					// If bmcForwarderDaemonSet restartTimestamp annotation not exist mark restart to true
-					log.Info("Mark bmcForwarderDaemonSet restart to true due to missing restartTimestamp annotation")
-					restart = true
-				}
-				if restart {
-					// Patching restartTimestamp annotation of bmcForwarderDaemonSet to restart
-					log.Info("Patching restartTimestamp annotation of bmcForwarderDaemonSet to restart")
-					patch := []byte(fmt.Sprintf(`{"spec":{"template":{"metadata":{"annotations":{"%s": "%d"}}}}}`, r.BasicConst.RestartTimestampAnnotation, currentTimestamp))
-					if err = r.Patch(ctx, bmcForwarderDaemonSet, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
-						log.Error(err, "Failed to patch bmcForwarderDaemonSet")
-					}
-				}
-			} else {
-				// If bmcForwarderDaemonSet not exist
-				log.Error(err, "Unable to get bmcForwarderDaemonSet")
+			// Check current and exist logstashForwarderMicroserviceConfig checksum
+			log.Info("Comparing hash", "existLogstashForwarderMicroserviceConfigHash", existLogstashForwarderMicroserviceConfigHash, "logstashForwarderConfigHash", logstashForwarderConfigHash)
+			if existLogstashForwarderMicroserviceConfigHash != logstashForwarderConfigHash {
+				// If current and exist logstashForwarderConfigHash checksum not same
+				existLogstashForwarderMicroserviceConfigModified = currentTimestamp
+				r.createOrUpdateForwarderMicroserviceConfigInfo(ctx, currentTimestamp,
+					r.BasicConst.LogstashForwarderMicroserviceConfig, logstashForwarderConfigHash, logstashForwarderMicroserviceConfigMap)
 			}
+
+			r.restartForwarderDaemonSet(ctx, r.BasicConfig.BmcForwarderName, currentTimestamp, existBmcForwarderMicroserviceConfigModified)
+			r.restartForwarderDaemonSet(ctx, r.BasicConfig.LogstashForwarderName, currentTimestamp, existLogstashForwarderMicroserviceConfigModified)
 		}
 	}()
 
