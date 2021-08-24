@@ -107,10 +107,11 @@ func main() {
 			LogstashForwarderName: logstashForwarderName,
 		},
 		BasicConst: operator.BasicConst{
-			ChecksumAnnotation:             "hkjc.org.hk/checksum",
-			ModifiedAnnotation:             "hkjc.org.hk/modified",
-			RestartTimestampAnnotation:     "hkjc.org.hk/restartTimestamp",
-			BmcForwarderMicroserviceConfig: "bmc-forwarder-microservice",
+			ChecksumAnnotation:                  "hkjc.org.hk/checksum",
+			ModifiedAnnotation:                  "hkjc.org.hk/modified",
+			RestartTimestampAnnotation:          "hkjc.org.hk/restartTimestamp",
+			BmcForwarderMicroserviceConfig:      "bmc-forwarder-microservice",
+			LogstashForwarderMicroserviceConfig: "logstash-forwarder-microservice",
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Logging")
