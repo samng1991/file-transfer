@@ -157,10 +157,6 @@ type ParserList struct {
 func (parserList ParserList) Load() (string, error) {
 	log := ctrllog.FromContext(context.Background())
 
-	namespacedName := func(namespace string, name string) string {
-		return namespace + "_" + name
-	}
-
 	parsers := parserList.Items
 	sort.SliceStable(parsers, func(i, j int) bool {
 		return utils.ExObjectMeta(parsers[i].ObjectMeta).GetNamespacedName() <
