@@ -7,5 +7,5 @@ import (
 type ExObjectMeta metav1.ObjectMeta
 
 func (objectMeta ExObjectMeta) GetNamespacedName() string {
-	return objectMeta.Namespace + "_" + objectMeta.ObjectMeta.Name
+	return objectMeta.Namespace + "_" + objectMeta.Name
 }
