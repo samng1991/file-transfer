@@ -169,7 +169,7 @@ func (r *LoggingReconciler) loadLogstashForwarderMicroserviceConfig(ctx context.
 	if parsers.Items != nil {
 		for i, parser := range parsers.Items {
 			objectMetaSpecs[i] = utils.ObjectMetaSpec{
-				ExObjectMeta: parser.ObjectMeta,
+				ExObjectMeta: utils.ExObjectMeta(parser.ObjectMeta),
 				Pod:          parser.Spec.Pod,
 				Container:    parser.Spec.Container,
 			}
@@ -178,7 +178,7 @@ func (r *LoggingReconciler) loadLogstashForwarderMicroserviceConfig(ctx context.
 	if throttles.Items != nil {
 		for i, throttle := range throttles.Items {
 			objectMetaSpecs[len(parsers.Items)+i] = utils.ObjectMetaSpec{
-				ExObjectMeta: throttle.ObjectMeta,
+				ExObjectMeta: utils.ExObjectMeta(throttle.ObjectMeta),
 				Pod:          throttle.Spec.Pod,
 				Container:    throttle.Spec.Container,
 			}
