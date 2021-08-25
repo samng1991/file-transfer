@@ -142,7 +142,7 @@ func (r *LoggingReconciler) loadLogstashForwarderMicroserviceConfig(ctx context.
 		parsersConfig, err := parsers.Load()
 		if err == nil {
 			logstashForwarderMicroserviceConfig += parsersConfig
-			logstashForwarderMicroserviceConfigMap["parser.conf"] = parsersConfig
+			logstashForwarderMicroserviceConfigMap["parsers.conf"] = parsersConfig
 		} else {
 			log.Error(err, "Failed to load parsers")
 		}
