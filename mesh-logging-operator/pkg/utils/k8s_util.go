@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +19,8 @@ func (objectMeta ExObjectMeta) GetNamespacedName() string {
 	return objectMeta.Namespace + "_" + objectMeta.Name
 }
 
-func GetRewriteTagsConfigByExObjectMetas(objectMetaSpecs []ObjectMetaSpec) string {
+func GetRewriteTagsConfigByExObjectMetas(objectMetaSpecs []ObjectMetaSpec) (string, error) {
+	var buf bytes.Buffer
 	for _, objectMetaSpec := range objectMetaSpecs {
 		namespacedName := objectMetaSpec.ExObjectMeta.GetNamespacedName()
 		encodedNamespacedName := base64.StdEncoding.EncodeToString([]byte(namespacedName))
@@ -32,5 +34,5 @@ func GetRewriteTagsConfigByExObjectMetas(objectMetaSpecs []ObjectMetaSpec) strin
 		buf.WriteString(fmt.Sprintf("    Match   container.var.log.containers.%s_%s_%s-*.log\n", pod, objectMetaSpec.ExObjectMeta.Namespace, container))
 		buf.WriteString(fmt.Sprintf("    Rule    $stream .* %s.$TAG false\n", encodedNamespacedName))
 	}
-	return ""
+	return buf.String(), nil
 }
