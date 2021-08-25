@@ -71,74 +71,61 @@ func (parser Parser) Load() (string, error) {
 	log := ctrllog.FromContext(context.Background())
 
 	var buf bytes.Buffer
-	merge := func(namespace string, name string, pod string, container string) error {
-		encodedNamespacedName := base64.StdEncoding.EncodeToString([]byte(namespace + "_" + name))
+	mergeSingleLineParser := func(singleLineParser SingleLineParser) error {
+		namespacedName := utils.ExObjectMeta(parser.ObjectMeta).GetNamespacedName()
+		encodedNamespacedName := base64.StdEncoding.EncodeToString([]byte(namespacedName))
 
-		// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
-		pod = pod + "-*"
-		if len(container) == 0 {
-			container = "*"
+		if len(parser.Spec.Pod) == 0 || len(parser.Spec.Container) == 0 {
+			log.Info("Skip loading Parser SingleLineParser due to empty pod or container name", "namespacedName", namespacedName)
+		} else {
+			// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
+			var pod = parser.Spec.Pod + "-*"
+			var container = parser.Spec.Container
+
+			buf.WriteString("[Filter]\n")
+			buf.WriteString(fmt.Sprintf("    Name     parser\n"))
+			buf.WriteString(fmt.Sprintf("    Match    %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, parser.Namespace, container))
+			buf.WriteString(fmt.Sprintf("    Key_Name message\n"))
+			buf.WriteString(fmt.Sprintf("    Format regex\n"))
+			buf.WriteString(fmt.Sprintf("    Regex  %s\n", singleLineParser.Regex))
+			buf.WriteString(fmt.Sprintf("    Reserve_Data On\n"))
 		}
-
-		buf.WriteString("[Filter]\n")
-		buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
-		buf.WriteString(fmt.Sprintf("    Match   container.var.log.containers.%s_%s_%s-*.log\n", pod, namespace, container))
-		buf.WriteString(fmt.Sprintf("    Rule    $stream .* %s.$TAG false\n", encodedNamespacedName))
 
 		return nil
 	}
-	mergeSingleLineParser := func(namespace string, name string, pod string, container string, singleLineParser SingleLineParser) error {
-		encodedNamespacedName := base64.StdEncoding.EncodeToString([]byte(namespace + "_" + name))
+	mergeMultilineParser := func(multilineParser MultilineParser) error {
+		namespacedName := utils.ExObjectMeta(parser.ObjectMeta).GetNamespacedName()
+		encodedNamespacedName := base64.StdEncoding.EncodeToString([]byte(namespacedName))
 
-		// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
-		pod = pod + "-*"
-		if len(container) == 0 {
-			container = "*"
+		if len(parser.Spec.Pod) == 0 || len(parser.Spec.Container) == 0 {
+			log.Info("Skip loading Parser due to empty pod or container name", "namespacedName", namespacedName)
+		} else {
+			// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
+			var pod = parser.Spec.Pod + "-*"
+			var container = parser.Spec.Container
+
+			buf.WriteString("[MULTILINE_PARSER]\n")
+			buf.WriteString(fmt.Sprintf("    Name          %s\n", encodedNamespacedName))
+			buf.WriteString(fmt.Sprintf("    Type          regex"))
+			buf.WriteString(fmt.Sprintf("    flush_timeout %d\n", multilineParser.FlushTimeout))
+			buf.WriteString(fmt.Sprintf("    rule      \"start_state\"    %s\n", multilineParser.StartStateRegex))
+			buf.WriteString(fmt.Sprintf("    rule      \"cont\"           %s\n", multilineParser.ContRegex))
+
+			buf.WriteString("[Filter]\n")
+			buf.WriteString(fmt.Sprintf("    Name                  multiline\n"))
+			buf.WriteString(fmt.Sprintf("    Match                 %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, parser.Namespace, container))
+			buf.WriteString(fmt.Sprintf("    multiline.key_content message\n"))
+			buf.WriteString(fmt.Sprintf("    multiline.parser      %s\n", multilineParser.Parser))
 		}
-
-		buf.WriteString("[Filter]\n")
-		buf.WriteString(fmt.Sprintf("    Name     parser\n"))
-		buf.WriteString(fmt.Sprintf("    Match    %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, namespace, container))
-		buf.WriteString(fmt.Sprintf("    Key_Name message\n"))
-		buf.WriteString(fmt.Sprintf("    Format regex\n"))
-		buf.WriteString(fmt.Sprintf("    Regex  %s\n", singleLineParser.Regex))
-		buf.WriteString(fmt.Sprintf("    Reserve_Data On\n"))
-
-		return nil
-	}
-	mergeMultilineParser := func(namespace string, name string, pod string, container string, multilineParser MultilineParser) error {
-		encodedNamespacedName := base64.StdEncoding.EncodeToString([]byte(namespace + "_" + name))
-
-		// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
-		pod = pod + "-*"
-		if len(container) == 0 {
-			container = "*"
-		}
-
-		buf.WriteString("[MULTILINE_PARSER]\n")
-		buf.WriteString(fmt.Sprintf("    Name          %s\n", encodedNamespacedName))
-		buf.WriteString(fmt.Sprintf("    Type          regex"))
-		buf.WriteString(fmt.Sprintf("    flush_timeout %d\n", multilineParser.FlushTimeout))
-		buf.WriteString(fmt.Sprintf("    rule      \"start_state\"    %s\n", multilineParser.StartStateRegex))
-		buf.WriteString(fmt.Sprintf("    rule      \"cont\"           %s\n", multilineParser.ContRegex))
-
-		buf.WriteString("[Filter]\n")
-		buf.WriteString(fmt.Sprintf("    Name                  multiline\n"))
-		buf.WriteString(fmt.Sprintf("    Match                 %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, namespace, container))
-		buf.WriteString(fmt.Sprintf("    multiline.key_content message\n"))
-		buf.WriteString(fmt.Sprintf("    multiline.parser      %s\n", multilineParser.Parser))
 
 		return nil
 	}
 
 	log.Info("Merging SingleLineParser", "Namespace", parser.Namespace, "Name", parser.ObjectMeta.Name, "Regex", parser.Spec.SingleLineParser.Regex)
-	if err := merge(parser.Namespace, parser.ObjectMeta.Name, parser.Spec.Pod, parser.Spec.Container); err != nil {
+	if err := mergeSingleLineParser(parser.Spec.SingleLineParser); err != nil {
 		return "", err
 	}
-	if err := mergeSingleLineParser(parser.Namespace, parser.ObjectMeta.Name, parser.Spec.Pod, parser.Spec.Container, parser.Spec.SingleLineParser); err != nil {
-		return "", err
-	}
-	if err := mergeMultilineParser(parser.Namespace, parser.ObjectMeta.Name, parser.Spec.Pod, parser.Spec.Container, parser.Spec.MultilineParser); err != nil {
+	if err := mergeMultilineParser(parser.Spec.MultilineParser); err != nil {
 		return "", err
 	}
 

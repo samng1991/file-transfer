@@ -44,6 +44,7 @@ import (
 	"crypto/md5"
 	loggingv1alpha1 "hkjc.org.hk/mesh/logging-operator/api/v1alpha1"
 	operator "hkjc.org.hk/mesh/logging-operator/pkg/operator"
+	"hkjc.org.hk/mesh/logging-operator/pkg/utils"
 	"time"
 )
 
@@ -133,9 +134,11 @@ func (r *LoggingReconciler) loadLogstashForwarderMicroserviceConfig(ctx context.
 	var logstashForwarderMicroserviceConfig = ""
 	var logstashForwarderMicroserviceConfigMap = map[string]string{}
 
+	totalCRSize := 0
 	var parsers loggingv1alpha1.ParserList
 	if err := r.List(ctx, &parsers); err == nil {
 		log.Info("Loading parsers")
+		totalCRSize += len(parsers.Items)
 		parsersConfig, err := parsers.Load()
 		if err == nil {
 			logstashForwarderMicroserviceConfig += parsersConfig
@@ -150,6 +153,7 @@ func (r *LoggingReconciler) loadLogstashForwarderMicroserviceConfig(ctx context.
 	var throttles loggingv1alpha1.ThrottleList
 	if err := r.List(ctx, &throttles); err == nil {
 		log.Info("Loading throttles")
+		totalCRSize += len(throttles.Items)
 		throttlesConfig, err := throttles.Load()
 		if err == nil {
 			logstashForwarderMicroserviceConfig += throttlesConfig
@@ -161,6 +165,30 @@ func (r *LoggingReconciler) loadLogstashForwarderMicroserviceConfig(ctx context.
 		log.Error(err, "Unable to list throttles")
 	}
 
+	objectMetaSpecs := make([]utils.ObjectMetaSpec, totalCRSize)
+	if parsers.Items != nil {
+		for i, parser := range parsers.Items {
+			objectMetaSpecs[i] = utils.ObjectMetaSpec{
+				ExObjectMeta: parser.ObjectMeta,
+				Pod:          parser.Spec.Pod,
+				Container:    parser.Spec.Container,
+			}
+		}
+	}
+	if throttles.Items != nil {
+		for i, throttle := range throttles.Items {
+			objectMetaSpecs[len(parsers.Items)+i] = utils.ObjectMetaSpec{
+				ExObjectMeta: throttle.ObjectMeta,
+				Pod:          throttle.Spec.Pod,
+				Container:    throttle.Spec.Container,
+			}
+		}
+	}
+
+	rewriteTagsConfig := utils.GetRewriteTagsConfigByExObjectMetas(objectMetaSpecs)
+	logstashForwarderMicroserviceConfig += rewriteTagsConfig
+	logstashForwarderMicroserviceConfigMap["rewrite-tags.conf"] = rewriteTagsConfig
+
 	logstashForwarderConfigMD5 := md5.Sum([]byte(logstashForwarderMicroserviceConfig))
 	logstashForwarderConfigHash := hex.EncodeToString(logstashForwarderConfigMD5[:])
 	return logstashForwarderMicroserviceConfigMap, logstashForwarderConfigHash
@@ -170,7 +198,7 @@ func (r *LoggingReconciler) createOrUpdateForwarderMicroserviceConfigInfo(ctx co
 	forwarderMicroserviceConfigName string, forwarderConfigHash string, forwarderMicroserviceConfigMap map[string]string) {
 	log := ctrllog.FromContext(ctx)
 	// Create a new ConfigMap for current forwarderMicroserviceConfig
-	log.Info("Create configmap var for AlertPattern in namespace", "OperatorNamespace", r.BasicConfig.OperatorNamespace)
+	log.Info("Create configmap var for AlertPattern in namespace", "forwarderMicroserviceConfigName", forwarderMicroserviceConfigName, "OperatorNamespace", r.BasicConfig.OperatorNamespace)
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      forwarderMicroserviceConfigName,
@@ -184,7 +212,7 @@ func (r *LoggingReconciler) createOrUpdateForwarderMicroserviceConfigInfo(ctx co
 	}
 
 	// Create or update current forwarderMicroserviceConfig to k8s
-	log.Info("Create or update configmap resource for AlertPattern")
+	log.Info("Create or update configmap resource for AlertPattern", "forwarderMicroserviceConfigName", forwarderMicroserviceConfigName)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, configMap, func() error {
 		if configMap.ObjectMeta.Annotations == nil {
 			configMap.ObjectMeta.Annotations = map[string]string{}
@@ -195,13 +223,13 @@ func (r *LoggingReconciler) createOrUpdateForwarderMicroserviceConfigInfo(ctx co
 		configMap.SetOwnerReferences(nil)
 		return nil
 	}); err != nil {
-		log.Error(err, "Failed to create or update configmap resource for AlertPattern")
+		log.Error(err, "Failed to create or update configmap resource for AlertPattern", "forwarderMicroserviceConfigName", forwarderMicroserviceConfigName)
 	}
 }
 
 func (r *LoggingReconciler) restartForwarderDaemonSet(ctx context.Context, forwarderName string, currentTimestamp int64, existForwarderMicroserviceConfigModified int64) {
 	log := ctrllog.FromContext(ctx)
-	log.Info("Getting bmcForwarderDaemonSet")
+	log.Info("Getting bmcForwarderDaemonSet", "forwarderName", forwarderName)
 
 	forwarderDaemonSet := &v1.DaemonSet{}
 	err := r.Get(ctx, client.ObjectKey{
@@ -214,28 +242,28 @@ func (r *LoggingReconciler) restartForwarderDaemonSet(ctx context.Context, forwa
 		if forwarderDaemonSet.Spec.Template.ObjectMeta.Annotations != nil && len(forwarderDaemonSet.Spec.Template.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation]) > 0 {
 			// If forwarderDaemonSet restartTimestamp annotation exist
 			restartTimestamp, _ := strconv.ParseInt(forwarderDaemonSet.Spec.Template.ObjectMeta.Annotations[r.BasicConst.RestartTimestampAnnotation], 10, 64)
-			log.Info("Checking forwarderDaemonSet need to restart or not", "currentTimestamp", currentTimestamp, "restartTimestamp", restartTimestamp, "existForwarderMicroserviceConfigModified", existForwarderMicroserviceConfigModified)
+			log.Info("Checking forwarderDaemonSet need to restart or not", "forwarderName", forwarderName, "currentTimestamp", currentTimestamp, "restartTimestamp", restartTimestamp, "existForwarderMicroserviceConfigModified", existForwarderMicroserviceConfigModified)
 			if (currentTimestamp-restartTimestamp) > int64(r.BasicConfig.MinRestartInterval)*60 && restartTimestamp < existForwarderMicroserviceConfigModified {
 				// If interval greater than minRestartInterval and restartTimestamp less than existForwarderMicroserviceConfigModified mark restart to true
-				log.Info("Mark forwarderDaemonSet restart to true due to interval greater than minRestartInterval and restartTimestamp less than existForwarderMicroserviceConfigModified")
+				log.Info("Mark forwarderDaemonSet restart to true due to interval greater than minRestartInterval and restartTimestamp less than existForwarderMicroserviceConfigModified", "forwarderName", forwarderName)
 				restart = true
 			}
 		} else {
 			// If forwarderDaemonSet restartTimestamp annotation not exist mark restart to true
-			log.Info("Mark forwarderDaemonSet restart to true due to missing restartTimestamp annotation")
+			log.Info("Mark forwarderDaemonSet restart to true due to missing restartTimestamp annotation", "forwarderName", forwarderName)
 			restart = true
 		}
 		if restart {
 			// Patching restartTimestamp annotation of forwarderDaemonSet to restart
-			log.Info("Patching restartTimestamp annotation of forwarderDaemonSet to restart")
+			log.Info("Patching restartTimestamp annotation of forwarderDaemonSet to restart", "forwarderName", forwarderName)
 			patch := []byte(fmt.Sprintf(`{"spec":{"template":{"metadata":{"annotations":{"%s": "%d"}}}}}`, r.BasicConst.RestartTimestampAnnotation, currentTimestamp))
 			if err = r.Patch(ctx, forwarderDaemonSet, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
-				log.Error(err, "Failed to patch forwarderDaemonSet")
+				log.Error(err, "Failed to patch forwarderDaemonSet", "forwarderName", forwarderName)
 			}
 		}
 	} else {
 		// If forwarderDaemonSet not exist
-		log.Error(err, "Unable to get forwarderDaemonSet")
+		log.Error(err, "Unable to get forwarderDaemonSet", "forwarderName", forwarderName)
 	}
 }
 
