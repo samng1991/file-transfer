@@ -76,7 +76,9 @@ func (parser Parser) Load() (string, error) {
 		encodedNamespacedName := base64.StdEncoding.EncodeToString([]byte(namespacedName))
 
 		if len(parser.Spec.Pod) == 0 || len(parser.Spec.Container) == 0 {
-			log.Info("Skip loading Parser SingleLineParser due to empty pod or container name", "namespacedName", namespacedName)
+			log.Info("Skip loading SingleLineParser due to empty pod or container name", "namespacedName", namespacedName)
+		} else if len(singleLineParser.Regex) == 0 {
+			log.Info("Skip loading SingleLineParser due to empty Regex", "namespacedName", namespacedName)
 		} else {
 			// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
 			var pod = parser.Spec.Pod + "-*"
@@ -98,7 +100,9 @@ func (parser Parser) Load() (string, error) {
 		encodedNamespacedName := base64.StdEncoding.EncodeToString([]byte(namespacedName))
 
 		if len(parser.Spec.Pod) == 0 || len(parser.Spec.Container) == 0 {
-			log.Info("Skip loading Parser due to empty pod or container name", "namespacedName", namespacedName)
+			log.Info("Skip loading MultilineParser due to empty pod or container name", "namespacedName", namespacedName)
+		} else if multilineParser.FlushTimeout == 0 || len(multilineParser.StartStateRegex) == 0 || len(multilineParser.ContRegex) == 0 {
+			log.Info("Skip loading MultilineParser due to empty FlushTimeout or StartStateRegex or ContRegex", "namespacedName", namespacedName)
 		} else {
 			// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
 			var pod = parser.Spec.Pod + "-*"
