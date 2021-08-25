@@ -84,12 +84,16 @@ func (parser Parser) Load() (string, error) {
 			var pod = parser.Spec.Pod + "-*"
 			var container = parser.Spec.Container
 
+			buf.WriteString("[PARSER]\n")
+			buf.WriteString(fmt.Sprintf("    Name     %s\n", encodedNamespacedName))
+			buf.WriteString(fmt.Sprintf("    Format   regex\n"))
+			buf.WriteString(fmt.Sprintf("    Regex    %s\n", singleLineParser.Regex))
+
 			buf.WriteString("[Filter]\n")
-			buf.WriteString(fmt.Sprintf("    Name     parser\n"))
-			buf.WriteString(fmt.Sprintf("    Match    %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, parser.Namespace, container))
-			buf.WriteString(fmt.Sprintf("    Key_Name message\n"))
-			buf.WriteString(fmt.Sprintf("    Format regex\n"))
-			buf.WriteString(fmt.Sprintf("    Regex  %s\n", singleLineParser.Regex))
+			buf.WriteString(fmt.Sprintf("    Name         parser\n"))
+			buf.WriteString(fmt.Sprintf("    Match        %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, parser.Namespace, container))
+			buf.WriteString(fmt.Sprintf("    Key_Name     message\n"))
+			buf.WriteString(fmt.Sprintf("    Parser       %s\n", encodedNamespacedName))
 			buf.WriteString(fmt.Sprintf("    Reserve_Data On\n"))
 		}
 
