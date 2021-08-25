@@ -185,7 +185,7 @@ func (r *LoggingReconciler) loadLogstashForwarderMicroserviceConfig(ctx context.
 		}
 	}
 
-	rewriteTagsConfig := utils.GetRewriteTagsConfigByExObjectMetas(objectMetaSpecs)
+	rewriteTagsConfig, _ := utils.GetRewriteTagsConfigByExObjectMetas(objectMetaSpecs)
 	logstashForwarderMicroserviceConfig += rewriteTagsConfig
 	logstashForwarderMicroserviceConfigMap["rewrite-tags.conf"] = rewriteTagsConfig
 
