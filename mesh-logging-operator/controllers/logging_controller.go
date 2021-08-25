@@ -139,10 +139,12 @@ func (r *LoggingReconciler) loadLogstashForwarderMicroserviceConfig(ctx context.
 	if err := r.List(ctx, &parsers); err == nil {
 		log.Info("Loading parsers")
 		totalCRSize += len(parsers.Items)
-		parsersConfig, err := parsers.Load()
+		parsersConfig, parserFiltersConfig, err := parsers.Load()
 		if err == nil {
 			logstashForwarderMicroserviceConfig += parsersConfig
-			logstashForwarderMicroserviceConfigMap["parsers.conf"] = parsersConfig
+			logstashForwarderMicroserviceConfig += parserFiltersConfig
+			logstashForwarderMicroserviceConfigMap["mesh-parser.conf"] = parsersConfig
+			logstashForwarderMicroserviceConfigMap["parser-filters.conf"] = parserFiltersConfig
 		} else {
 			log.Error(err, "Failed to load parsers")
 		}

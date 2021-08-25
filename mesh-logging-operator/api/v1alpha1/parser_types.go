@@ -67,10 +67,11 @@ type Parser struct {
 	Status ParserStatus `json:"status,omitempty"`
 }
 
-func (parser Parser) Load() (string, error) {
+func (parser Parser) Load() (string, string, error) {
 	log := ctrllog.FromContext(context.Background())
 
-	var buf bytes.Buffer
+	var parsersConfigBuf bytes.Buffer
+	var parserFiltersConfigBuf bytes.Buffer
 	mergeSingleLineParser := func(singleLineParser SingleLineParser) error {
 		namespacedName := utils.ExObjectMeta(parser.ObjectMeta).GetNamespacedName()
 		encodedNamespacedName := base64.StdEncoding.EncodeToString([]byte(namespacedName))
@@ -84,17 +85,17 @@ func (parser Parser) Load() (string, error) {
 			var pod = parser.Spec.Pod + "-*"
 			var container = parser.Spec.Container
 
-			buf.WriteString("[PARSER]\n")
-			buf.WriteString(fmt.Sprintf("    Name     %s\n", encodedNamespacedName))
-			buf.WriteString(fmt.Sprintf("    Format   regex\n"))
-			buf.WriteString(fmt.Sprintf("    Regex    %s\n", singleLineParser.Regex))
+			parsersConfigBuf.WriteString("[PARSER]\n")
+			parsersConfigBuf.WriteString(fmt.Sprintf("    Name     %s\n", encodedNamespacedName))
+			parsersConfigBuf.WriteString(fmt.Sprintf("    Format   regex\n"))
+			parsersConfigBuf.WriteString(fmt.Sprintf("    Regex    %s\n", singleLineParser.Regex))
 
-			buf.WriteString("[Filter]\n")
-			buf.WriteString(fmt.Sprintf("    Name         parser\n"))
-			buf.WriteString(fmt.Sprintf("    Match        %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, parser.Namespace, container))
-			buf.WriteString(fmt.Sprintf("    Key_Name     message\n"))
-			buf.WriteString(fmt.Sprintf("    Parser       %s\n", encodedNamespacedName))
-			buf.WriteString(fmt.Sprintf("    Reserve_Data On\n"))
+			parserFiltersConfigBuf.WriteString("[Filter]\n")
+			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Name         parser\n"))
+			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Match        %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, parser.Namespace, container))
+			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Key_Name     message\n"))
+			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Parser       %s\n", encodedNamespacedName))
+			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Reserve_Data On\n"))
 		}
 
 		return nil
@@ -112,18 +113,18 @@ func (parser Parser) Load() (string, error) {
 			var pod = parser.Spec.Pod + "-*"
 			var container = parser.Spec.Container
 
-			buf.WriteString("[MULTILINE_PARSER]\n")
-			buf.WriteString(fmt.Sprintf("    Name          %s\n", encodedNamespacedName))
-			buf.WriteString(fmt.Sprintf("    Type          regex"))
-			buf.WriteString(fmt.Sprintf("    flush_timeout %d\n", multilineParser.FlushTimeout))
-			buf.WriteString(fmt.Sprintf("    rule      \"start_state\"    %s\n", multilineParser.StartStateRegex))
-			buf.WriteString(fmt.Sprintf("    rule      \"cont\"           %s\n", multilineParser.ContRegex))
+			parsersConfigBuf.WriteString("[MULTILINE_PARSER]\n")
+			parsersConfigBuf.WriteString(fmt.Sprintf("    Name          %s\n", encodedNamespacedName))
+			parsersConfigBuf.WriteString(fmt.Sprintf("    Type          regex"))
+			parsersConfigBuf.WriteString(fmt.Sprintf("    flush_timeout %d\n", multilineParser.FlushTimeout))
+			parsersConfigBuf.WriteString(fmt.Sprintf("    rule      \"start_state\"    %s\n", multilineParser.StartStateRegex))
+			parsersConfigBuf.WriteString(fmt.Sprintf("    rule      \"cont\"           %s\n", multilineParser.ContRegex))
 
-			buf.WriteString("[Filter]\n")
-			buf.WriteString(fmt.Sprintf("    Name                  multiline\n"))
-			buf.WriteString(fmt.Sprintf("    Match                 %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, parser.Namespace, container))
-			buf.WriteString(fmt.Sprintf("    multiline.key_content message\n"))
-			buf.WriteString(fmt.Sprintf("    multiline.parser      %s\n", multilineParser.Parser))
+			parserFiltersConfigBuf.WriteString("[Filter]\n")
+			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Name                  multiline\n"))
+			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Match                 %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, parser.Namespace, container))
+			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    multiline.key_content message\n"))
+			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    multiline.parser      %s\n", multilineParser.Parser))
 		}
 
 		return nil
@@ -131,13 +132,13 @@ func (parser Parser) Load() (string, error) {
 
 	log.Info("Merging SingleLineParser", "Namespace", parser.Namespace, "Name", parser.ObjectMeta.Name, "Regex", parser.Spec.SingleLineParser.Regex)
 	if err := mergeSingleLineParser(parser.Spec.SingleLineParser); err != nil {
-		return "", err
+		return "", "", err
 	}
 	if err := mergeMultilineParser(parser.Spec.MultilineParser); err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return buf.String(), nil
+	return parsersConfigBuf.String(), parserFiltersConfigBuf.String(), nil
 }
 
 //+kubebuilder:object:root=true
@@ -149,7 +150,7 @@ type ParserList struct {
 	Items           []Parser `json:"items"`
 }
 
-func (parserList ParserList) Load() (string, error) {
+func (parserList ParserList) Load() (string, string, error) {
 	log := ctrllog.FromContext(context.Background())
 
 	parsers := parserList.Items
@@ -159,16 +160,18 @@ func (parserList ParserList) Load() (string, error) {
 	})
 
 	var parsersConfig = ""
+	var parserFiltersConfig = ""
 	for _, parser := range parsers {
-		parserConfig, err := parser.Load()
+		parserConfig, parserFilterConfig, err := parser.Load()
 		if err == nil {
-			parsersConfig = parsersConfig + parserConfig
+			parsersConfig += parsersConfig + parserConfig
+			parserFiltersConfig += parserFilterConfig
 		} else {
 			log.Error(err, "Unable to load parser config", "namespacedName", utils.ExObjectMeta(parser.ObjectMeta).GetNamespacedName())
 		}
 	}
 
-	return parsersConfig, nil
+	return parsersConfig, parserFiltersConfig, nil
 }
 
 func init() {
