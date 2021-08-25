@@ -36,9 +36,11 @@ spec:
           spec:
             description: ThrottleSpec defines the desired state of Throttle
             properties:
-              foo:
-                description: Foo is an example field of Throttle. Edit throttle_types.go
-                  to remove/update
+              container:
+                type: string
+              pod:
+                description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                  Important: Run "make" to regenerate code after modifying this file'
                 type: string
             type: object
           status:

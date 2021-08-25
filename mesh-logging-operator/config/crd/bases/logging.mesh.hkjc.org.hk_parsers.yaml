@@ -36,10 +36,26 @@ spec:
           spec:
             description: ParserSpec defines the desired state of Parser
             properties:
-              foo:
-                description: Foo is an example field of Parser. Edit parser_types.go
-                  to remove/update
+              container:
                 type: string
+              multilineParser:
+                properties:
+                  contRegex:
+                    type: string
+                  flushTimeout:
+                    type: integer
+                  parser:
+                    type: string
+                  startStateRegex:
+                    type: string
+                type: object
+              pod:
+                type: string
+              singleLineParser:
+                properties:
+                  regex:
+                    type: string
+                type: object
             type: object
           status:
             description: ParserStatus defines the observed state of Parser
