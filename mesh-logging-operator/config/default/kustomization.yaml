@@ -1,6 +1,3 @@
-# Adds namespace to all resources.
-namespace: mesh-logging-operator-system
-
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
@@ -29,6 +26,7 @@ patchesStrategicMerge:
 # If you want your controller-manager to expose the /metrics
 # endpoint w/o any authn/z, please comment the following line.
 - manager_auth_proxy_patch.yaml
+- service_account.yaml
 
 # Mount the controller config file for loading manager configurations
 # through a ComponentConfig type
@@ -72,3 +70,7 @@ vars:
 #    kind: Service
 #    version: v1
 #    name: webhook-service
+
+images:
+- name: gcr.io/kubebuilder/kube-rbac-proxy
+  newName: deopcard.corp.hkjc.com/csp-svcmesh-docker-snapshot-local/mesh/gcr.io/kubebuilder/kube-rbac-proxy
