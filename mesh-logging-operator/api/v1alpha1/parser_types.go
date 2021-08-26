@@ -95,7 +95,7 @@ func (parser Parser) Load() (string, string, error) {
 			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Match        %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, parser.Namespace, container))
 			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Key_Name     message\n"))
 			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Parser       %s\n", encodedNamespacedName))
-			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Reserve_Data On\n"))
+			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Preserve_Key On\n"))
 		}
 
 		return nil
