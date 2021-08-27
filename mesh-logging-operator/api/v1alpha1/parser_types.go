@@ -106,25 +106,36 @@ func (parser Parser) Load() (string, string, error) {
 
 		if len(parser.Spec.Pod) == 0 || len(parser.Spec.Container) == 0 {
 			log.Info("Skip loading MultilineParser due to empty pod or container name", "namespacedName", namespacedName)
-		} else if multilineParser.FlushTimeout == 0 || len(multilineParser.StartStateRegex) == 0 || len(multilineParser.ContRegex) == 0 {
-			log.Info("Skip loading MultilineParser due to empty FlushTimeout or StartStateRegex or ContRegex", "namespacedName", namespacedName)
+		} else if len(multilineParser.Parser) == 0 && (multilineParser.FlushTimeout == 0 || len(multilineParser.StartStateRegex) == 0 || len(multilineParser.ContRegex) == 0) {
+			log.Info("Skip loading MultilineParser due to Parser is empty and (FlushTimeout or StartStateRegex or ContRegex) is empty", "namespacedName", namespacedName)
 		} else {
 			// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
 			var pod = parser.Spec.Pod + "-*"
 			var container = parser.Spec.Container
-
-			parsersConfigBuf.WriteString("[MULTILINE_PARSER]\n")
-			parsersConfigBuf.WriteString(fmt.Sprintf("    Name          %s\n", encodedNamespacedName))
-			parsersConfigBuf.WriteString(fmt.Sprintf("    Type          regex"))
-			parsersConfigBuf.WriteString(fmt.Sprintf("    flush_timeout %d\n", multilineParser.FlushTimeout))
-			parsersConfigBuf.WriteString(fmt.Sprintf("    rule      \"start_state\"    %s\n", multilineParser.StartStateRegex))
-			parsersConfigBuf.WriteString(fmt.Sprintf("    rule      \"cont\"           %s\n", multilineParser.ContRegex))
+			isMultilineParser := false
+			if multilineParser.FlushTimeout > 0 && len(multilineParser.StartStateRegex) > 0 && len(multilineParser.ContRegex) > 0 {
+				isMultilineParser = true
+				parsersConfigBuf.WriteString("[MULTILINE_PARSER]\n")
+				parsersConfigBuf.WriteString(fmt.Sprintf("    Name          %s\n", encodedNamespacedName))
+				parsersConfigBuf.WriteString(fmt.Sprintf("    Type          regex"))
+				parsersConfigBuf.WriteString(fmt.Sprintf("    flush_timeout %d\n", multilineParser.FlushTimeout))
+				parsersConfigBuf.WriteString(fmt.Sprintf("    rule      \"start_state\"    %s    \"cont\"\n", multilineParser.StartStateRegex))
+				parsersConfigBuf.WriteString(fmt.Sprintf("    rule      \"cont\"           %s    \"cont\"\n", multilineParser.ContRegex))
+			}
 
 			parserFiltersConfigBuf.WriteString("[Filter]\n")
 			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Name                  multiline\n"))
 			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    Match                 %s.container.var.log.containers.%s_%s_%s-*.log\n", encodedNamespacedName, pod, parser.Namespace, container))
 			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    multiline.key_content message\n"))
-			parserFiltersConfigBuf.WriteString(fmt.Sprintf("    multiline.parser      %s\n", multilineParser.Parser))
+			if len(multilineParser.Parser) == 0 {
+				parserFiltersConfigBuf.WriteString(fmt.Sprintf("    multiline.parser      %s\n", encodedNamespacedName))
+			} else {
+				if isMultilineParser {
+					parserFiltersConfigBuf.WriteString(fmt.Sprintf("    multiline.parser      %s,%s\n", multilineParser.Parser, encodedNamespacedName))
+				} else {
+					parserFiltersConfigBuf.WriteString(fmt.Sprintf("    multiline.parser      %s\n", multilineParser.Parser))
+				}
+			}
 		}
 
 		return nil
