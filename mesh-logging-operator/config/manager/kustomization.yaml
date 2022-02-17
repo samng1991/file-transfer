@@ -13,4 +13,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: samng1991/logging-operator
-  newTag: 0.0.41-debug
+  newTag: 0.0.60
