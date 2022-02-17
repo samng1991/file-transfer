@@ -23,8 +23,10 @@ import (
 	"fmt"
 	"hkjc.org.hk/mesh/logging-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"regexp"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sort"
+	"strings"
 )
 
 type AlertPatternItem struct {
@@ -72,19 +74,33 @@ func (alertPattern AlertPattern) Load() (string, error) {
 		if len(alertPattern.Spec.Pod) == 0 || len(alertPattern.Spec.Container) == 0 {
 			log.Info("Skip loading AlertPattern due to empty pod or container name", "namespacedName", namespacedName)
 		} else {
-			// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
-			var pod = alertPattern.Spec.Pod + "-*"
-			var container = alertPattern.Spec.Container
+			isRegexValid := true
+			regex := strings.ReplaceAll(elem.Regex, " ", "\\s")
+			if !strings.HasPrefix(regex, "/") || !strings.HasSuffix(regex, "/") {
+				log.Info("Skip loading AlertPattern due to regex not start and end with `/`", "namespacedName", namespacedName)
+				isRegexValid = false
+			} else {
+				_, err := regexp.Compile(regex)
+				if err != nil {
+					log.Info("Skip loading AlertPattern due to regex format not correct", "namespacedName", namespacedName)
+					isRegexValid = false
+				}
+			}
+			if isRegexValid {
+				// kube.var.log.containers.apache-logs-annotated_default_apache-aeeccc7a9f00f6e4e066aeff0434cf80621215071f1b20a51e8340aa7c35eac6.log
+				var pod = alertPattern.Spec.Pod + "-*"
+				var container = alertPattern.Spec.Container
 
-			buf.WriteString("[Filter]\n")
-			buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
-			buf.WriteString(fmt.Sprintf("    Match   container.var.log.containers.%s_%s_%s-*.log\n", pod, alertPattern.Namespace, container))
-			buf.WriteString(fmt.Sprintf("    Rule    $message %s bmc.%s.$TAG false\n", elem.Regex, encodedNamespacedName))
+				buf.WriteString("[Filter]\n")
+				buf.WriteString(fmt.Sprintf("    Name    rewrite_tag\n"))
+				buf.WriteString(fmt.Sprintf("    Match   container.var.log.containers.%s_%s_%s-*.log\n", pod, alertPattern.Namespace, container))
+				buf.WriteString(fmt.Sprintf("    Rule    $message %s bmc.%s.$TAG false\n", regex, encodedNamespacedName))
 
-			buf.WriteString("[Filter]\n")
-			buf.WriteString(fmt.Sprintf("    Name    record_modifier\n"))
-			buf.WriteString(fmt.Sprintf("    Match   bmc.%s.*\n", encodedNamespacedName))
-			buf.WriteString(fmt.Sprintf("    Record  eventID %s\n", elem.EventId))
+				buf.WriteString("[Filter]\n")
+				buf.WriteString(fmt.Sprintf("    Name    record_modifier\n"))
+				buf.WriteString(fmt.Sprintf("    Match   bmc.%s.*\n", encodedNamespacedName))
+				buf.WriteString(fmt.Sprintf("    Record  eventID %s\n", elem.EventId))
+			}
 		}
 
 		return nil
